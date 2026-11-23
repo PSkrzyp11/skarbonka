@@ -14,7 +14,6 @@ from skarbonka.wyjatki import BladWalidacji, NieprawidlowaData, NieprawidlowaKwo
 MIN_KWOTA = Decimal("0.01")
 MAKS_KWOTA = Decimal("999999999.99")
 
-# Dozwolone: 12 | 12,5 | 12.50 | 1234,50 | 1 234,50 (spacja tylko co trzy cyfry)
 WZORZEC_KWOTY = re.compile(r"[+-]?([0-9]+|[0-9]{1,3}( [0-9]{3})+)([.,][0-9]{1,2})?")
 
 FORMATY_DATY = ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y")
@@ -30,7 +29,6 @@ def parsuj_kwote(tekst: str, minimum: Decimal | None = MIN_KWOTA) -> Decimal:
     czysty = tekst.strip().lower()
     for jednostka in ("pln", "zł"):
         czysty = czysty.removesuffix(jednostka).rstrip()
-    # Wyciągi bankowe zawierają twarde spacje i typograficzny minus.
     czysty = czysty.replace(" ", " ").replace(" ", " ").replace("−", "-")
 
     if not czysty:

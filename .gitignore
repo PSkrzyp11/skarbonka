@@ -1,17 +1,13 @@
-# Python
 __pycache__/
 *.pyc
 .pytest_cache/
 
-# Środowisko wirtualne
 .venv/
 venv/
 
-# Dane lokalne: baza, kopie, eksporty, wykresy i logi
 dane/
 *.db
 *.log
 
-# Edytory
 .vscode/
 .idea/

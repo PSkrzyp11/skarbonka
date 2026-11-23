@@ -8,7 +8,6 @@ def main() -> None:
     try:
         uruchom()
     except (KeyboardInterrupt, EOFError):
-        # Ctrl+C lub Ctrl+Z w dowolnym miejscu.
         print("\nZakończono na życzenie użytkownika.")
     else:
         print("\nDo zobaczenia!")

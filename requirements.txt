@@ -1,2 +1,1 @@
-# Testy jednostkowe
 pytest>=8.0
