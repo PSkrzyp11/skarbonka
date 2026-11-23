@@ -2,7 +2,7 @@
 
 import sys
 
-from skarbonka.ui.aplikacja import uruchom
+from skarbonka.ui.aplikacja import Aplikacja
 
 
 def main() -> None:
@@ -13,7 +13,7 @@ def main() -> None:
     """
     sys.stdout.reconfigure(errors="replace")
     try:
-        uruchom()
+        Aplikacja().uruchom()
     except (KeyboardInterrupt, EOFError):
         print("\nZakończono na życzenie użytkownika.")
     else:
