@@ -12,6 +12,7 @@ from skarbonka.config import SLOWO_ANULUJ
 from skarbonka.utils.walidacja import (
     parsuj_date,
     parsuj_kwote,
+    parsuj_numer,
     parsuj_tak_nie,
     parsuj_wybor,
     sprawdz_tekst,
@@ -55,6 +56,11 @@ def wczytaj_date(komunikat: str = "Data") -> date:
 def wczytaj_tekst(komunikat: str) -> str:
     """Wczytuje niepusty tekst."""
     return wczytaj(komunikat, lambda tekst: sprawdz_tekst(tekst, komunikat))
+
+
+def wczytaj_numer(komunikat: str) -> int:
+    """Wczytuje dodatnią liczbę całkowitą."""
+    return wczytaj(komunikat, parsuj_numer)
 
 
 def wczytaj_wybor(komunikat: str, dozwolone: tuple[str, ...]) -> str:

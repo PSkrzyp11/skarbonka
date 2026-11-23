@@ -2,9 +2,15 @@
 
 from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
-from skarbonka.services.transakcje import saldo, suma_przychodow, suma_wydatkow
+from skarbonka.services import transakcje as serwis
 from skarbonka.ui.menu import Menu, OpcjaMenu
-from skarbonka.ui.wejscie import wczytaj_date, wczytaj_kwote, wczytaj_tekst
+from skarbonka.ui.wejscie import (
+    potwierdz,
+    wczytaj_date,
+    wczytaj_kwote,
+    wczytaj_numer,
+    wczytaj_tekst,
+)
 from skarbonka.utils.formatowanie import formatuj_kwote
 
 
@@ -25,6 +31,8 @@ class Aplikacja:
             [
                 OpcjaMenu("Dodaj wydatek", lambda: self.dodaj(Wydatek)),
                 OpcjaMenu("Dodaj przychód", lambda: self.dodaj(Przychod)),
+                OpcjaMenu("Lista transakcji", self.pokaz_liste),
+                OpcjaMenu("Usuń transakcję", self.usun),
             ],
         )
         menu_analiz = Menu(
@@ -51,15 +59,37 @@ class Aplikacja:
         data = wczytaj_date()
         opis = wczytaj_tekst("Opis")
         transakcja = rodzaj(data, kwota, opis)
-        self.transakcje.append(transakcja)
+        serwis.dodaj(self.transakcje, transakcja)
         print(f"  Dodano: {transakcja}")
+
+    def pokaz_liste(self) -> None:
+        """Wypisuje wszystkie transakcje od najnowszej."""
+        if not self.transakcje:
+            print("Brak transakcji.")
+            return
+        for transakcja in serwis.od_najnowszych(self.transakcje):
+            print(transakcja)
+        print(f"Razem: {len(self.transakcje)}")
+
+    def usun(self) -> None:
+        """Usuwa wybraną transakcję po potwierdzeniu."""
+        self.pokaz_liste()
+        if not self.transakcje:
+            return
+        transakcja = serwis.znajdz(self.transakcje, wczytaj_numer("Numer transakcji"))
+        print(transakcja)
+        if potwierdz("Na pewno usunąć?"):
+            serwis.usun(self.transakcje, transakcja.id)
+            print("  Usunięto.")
+        else:
+            print("  Nic nie usunięto.")
 
     def pokaz_sumy(self) -> None:
         """Wypisuje sumy przychodów i wydatków oraz saldo."""
         sumy = {
-            "Przychody": suma_przychodow(self.transakcje),
-            "Wydatki": suma_wydatkow(self.transakcje),
-            "Saldo": saldo(self.transakcje),
+            "Przychody": serwis.suma_przychodow(self.transakcje),
+            "Wydatki": serwis.suma_wydatkow(self.transakcje),
+            "Saldo": serwis.saldo(self.transakcje),
         }
         for nazwa, kwota in sumy.items():
             print(f"{nazwa:<12} {formatuj_kwote(kwota):>16}")

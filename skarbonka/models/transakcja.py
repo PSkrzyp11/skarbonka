@@ -34,7 +34,8 @@ class Transakcja(ABC):
 
     def __str__(self) -> str:
         kwota = formatuj_kwote(self.wplyw, ze_znakiem=True)
-        return f"{formatuj_date(self.data)}  {kwota:>16}  {self.opis}"
+        numer = self.id or "-"
+        return f"{numer:>4}  {formatuj_date(self.data)}  {kwota:>16}  {self.opis}"
 
 
 class Wydatek(Transakcja):

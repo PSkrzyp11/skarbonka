@@ -21,5 +21,9 @@ class NieprawidlowaData(BladWalidacji):
     """Tekst nie jest poprawną datą albo data jest spoza zakresu."""
 
 
+class NieZnalezionoRekordu(BladSkarbonki):
+    """Rekord o podanym numerze nie istnieje."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""

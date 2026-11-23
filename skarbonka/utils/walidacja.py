@@ -107,6 +107,14 @@ def sprawdz_tekst(
     return czysty
 
 
+def parsuj_numer(tekst: str) -> int:
+    """Zamienia tekst na dodatnią liczbę całkowitą."""
+    czysty = tekst.strip()
+    if not czysty.isdecimal() or len(czysty) > 9 or int(czysty) == 0:
+        raise BladWalidacji("Wpisz dodatnią liczbę całkowitą, np. 3.")
+    return int(czysty)
+
+
 def parsuj_tak_nie(tekst: str) -> bool:
     """Zamienia odpowiedź tak/nie na wartość logiczną."""
     czysty = tekst.strip().lower()
