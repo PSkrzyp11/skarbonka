@@ -12,6 +12,7 @@ from skarbonka.config import SLOWO_ANULUJ
 from skarbonka.utils.walidacja import (
     parsuj_date,
     parsuj_kwote,
+    parsuj_miesiac,
     parsuj_numer,
     parsuj_tak_nie,
     parsuj_wybor,
@@ -51,6 +52,12 @@ def wczytaj_date(komunikat: str = "Data") -> date:
         lambda tekst: parsuj_date(tekst, najpozniej=dzis),
         domyslna=dzis,
     )
+
+
+def wczytaj_miesiac(komunikat: str = "Miesiąc") -> date:
+    """Wczytuje miesiąc (Enter = bieżący)."""
+    biezacy = date.today().replace(day=1)
+    return wczytaj(f"{komunikat} [{biezacy:%m.%Y}]", parsuj_miesiac, domyslna=biezacy)
 
 
 def wczytaj_tekst(komunikat: str) -> str:

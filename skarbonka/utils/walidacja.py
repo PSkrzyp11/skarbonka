@@ -16,6 +16,7 @@ MAKS_KWOTA = Decimal("999999999.99")
 
 WZORZEC_KWOTY = re.compile(r"[+-]?([0-9]+|[0-9]{1,3}( [0-9]{3})+)([.,][0-9]{1,2})?")
 
+FORMATY_MIESIACA = ("%m.%Y", "%Y-%m", "%m/%Y")
 FORMATY_DATY = ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y")
 MIN_DATA = date(2000, 1, 1)
 MAKS_DATA = date(2100, 12, 31)
@@ -67,7 +68,7 @@ def parsuj_date(
     elif czysty == "wczoraj":
         wynik = date.today() - timedelta(days=1)
     else:
-        wynik = _dopasuj_format(czysty)
+        wynik = _dopasuj_format(czysty, FORMATY_DATY, "24.11.2026 | 2026-11-24 | dziś")
 
     if not MIN_DATA <= wynik <= MAKS_DATA:
         raise NieprawidlowaData(
@@ -78,16 +79,22 @@ def parsuj_date(
     return wynik
 
 
-def _dopasuj_format(tekst: str) -> date:
+def parsuj_miesiac(tekst: str) -> date:
+    """Zamienia tekst na pierwszy dzień miesiąca."""
+    wynik = _dopasuj_format(tekst.strip(), FORMATY_MIESIACA, "11.2026 | 2026-11")
+    if not MIN_DATA <= wynik <= MAKS_DATA:
+        raise NieprawidlowaData(f"Rok musi być między {MIN_DATA.year} a {MAKS_DATA.year}.")
+    return wynik
+
+
+def _dopasuj_format(tekst: str, formaty: tuple[str, ...], przyklady: str) -> date:
     """Próbuje kolejnych formatów daty, aż któryś zadziała."""
-    for wzor in FORMATY_DATY:
+    for wzor in formaty:
         try:
             return datetime.strptime(tekst, wzor).date()
         except ValueError:
             continue
-    raise NieprawidlowaData(
-        f"„{tekst}” nie jest poprawną datą. Przykłady: 24.11.2026 | 2026-11-24 | dziś."
-    )
+    raise NieprawidlowaData(f"„{tekst}” nie jest poprawną datą. Przykłady: {przyklady}.")
 
 
 def sprawdz_tekst(

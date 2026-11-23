@@ -1,17 +1,21 @@
 """Główna klasa interfejsu: stan aplikacji i drzewo menu."""
 
+from decimal import Decimal
+
 from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
+from skarbonka.services import analizy
 from skarbonka.services import transakcje as serwis
 from skarbonka.ui.menu import Menu, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
     wczytaj_date,
     wczytaj_kwote,
+    wczytaj_miesiac,
     wczytaj_numer,
     wczytaj_tekst,
 )
-from skarbonka.utils.formatowanie import formatuj_kwote
+from skarbonka.utils.formatowanie import formatuj_kwote, formatuj_miesiac, formatuj_procent
 
 
 def pokaz_naglowek() -> None:
@@ -19,6 +23,12 @@ def pokaz_naglowek() -> None:
     tytul = f" {NAZWA_APLIKACJI} "
     print(tytul.center(60, "="))
     print(f"Słowo „{SLOWO_ANULUJ}” w dowolnym polu przerywa operację.")
+
+
+def pokaz_kwoty(kwoty: dict[str, Decimal]) -> None:
+    """Wypisuje nazwy i kwoty w dwóch kolumnach."""
+    for nazwa, kwota in kwoty.items():
+        print(f"{nazwa:<12} {formatuj_kwote(kwota):>16}")
 
 
 class Aplikacja:
@@ -37,7 +47,11 @@ class Aplikacja:
         )
         menu_analiz = Menu(
             "Analizy",
-            [OpcjaMenu("Saldo i sumy", self.pokaz_sumy)],
+            [
+                OpcjaMenu("Saldo i sumy", self.pokaz_sumy),
+                OpcjaMenu("Podsumowanie miesiąca", self.pokaz_miesiac),
+                OpcjaMenu("Największe wydatki", self.pokaz_najwieksze),
+            ],
         )
         self.menu_glowne = Menu(
             "Menu główne",
@@ -91,5 +105,24 @@ class Aplikacja:
             "Wydatki": serwis.suma_wydatkow(self.transakcje),
             "Saldo": serwis.saldo(self.transakcje),
         }
-        for nazwa, kwota in sumy.items():
-            print(f"{nazwa:<12} {formatuj_kwote(kwota):>16}")
+        pokaz_kwoty(sumy)
+
+    def pokaz_miesiac(self) -> None:
+        """Wypisuje podsumowanie wybranego miesiąca."""
+        miesiac = wczytaj_miesiac()
+        wybrane = analizy.z_miesiaca(self.transakcje, miesiac)
+        print()
+        print(f"{formatuj_miesiac(miesiac).capitalize()}, transakcje: {len(wybrane)}")
+        podsumowanie = analizy.podsumowanie_miesiaca(self.transakcje, miesiac)
+        pokaz_kwoty(podsumowanie)
+        stopa = analizy.stopa_oszczednosci(podsumowanie["Przychody"], podsumowanie["Bilans"])
+        if stopa is not None:
+            print(f"{'Oszczędności':<12} {formatuj_procent(stopa):>16}")
+
+    def pokaz_najwieksze(self) -> None:
+        """Wypisuje pięć największych wydatków."""
+        wydatki = analizy.najwieksze_wydatki(self.transakcje)
+        if not wydatki:
+            print("Brak wydatków.")
+        for miejsce, wydatek in enumerate(wydatki, start=1):
+            print(f"{miejsce}. {wydatek}")
