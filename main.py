@@ -1,12 +1,17 @@
 """Punkt startowy aplikacji Skarbonka."""
 
-from skarbonka import __version__
-from skarbonka.config import NAZWA_APLIKACJI
+from skarbonka.ui.aplikacja import uruchom
 
 
 def main() -> None:
-    """Uruchamia aplikację."""
-    print(f"{NAZWA_APLIKACJI} {__version__}")
+    """Uruchamia aplikację i pilnuje spokojnego zakończenia programu."""
+    try:
+        uruchom()
+    except (KeyboardInterrupt, EOFError):
+        # Ctrl+C lub Ctrl+Z w dowolnym miejscu.
+        print("\nZakończono na życzenie użytkownika.")
+    else:
+        print("\nDo zobaczenia!")
 
 
 if __name__ == "__main__":
