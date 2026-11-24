@@ -1,0 +1,158 @@
+# Skarbonka
+
+Konsolowy menedżer budżetu domowego. Zapisuje wydatki i przychody, pilnuje budżetów i celów, importuje wyciągi bankowe i prognozuje saldo na koniec miesiąca. Wszystkie dane zostają na komputerze użytkownika.
+
+![Pulpit i menu główne](docs/pulpit.svg)
+
+## Najważniejsze funkcje
+
+- **Transakcje:** wydatki, przychody i przelewy między kontami, edycja, wyszukiwanie, wydatki w obcej walucie
+- **Plan:** budżety z ostrzeżeniami, cele oszczędnościowe, transakcje cykliczne
+- **Analizy:** podsumowania, udziały kategorii, trend, prognoza salda w trzech wariantach, wykresy PNG
+- **Dane:** import wyciągów CSV z wykrywaniem duplikatów, eksport CSV, raport TXT, kopie zapasowe JSON
+- **Bezpieczeństwo:** każda dana wejściowa jest sprawdzana, błędy trafiają do logu, a uszkodzona baza jest odkładana i zastępowana kopią
+
+![Analizy](docs/analizy.svg)
+
+![Wykres salda](docs/saldo.png)
+
+Zrzuty pokazują dane wygenerowane przez tryb `--demo`.
+
+## Instalacja
+
+Wymagany jest Python 3.11 lub nowszy.
+
+```powershell
+git clone https://github.com/PSkrzyp11/skarbonka.git
+cd skarbonka
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Na systemach Linux i macOS zamiast `.venv\Scripts\python.exe` należy użyć `.venv/bin/python`.
+
+## Uruchomienie
+
+```powershell
+.venv\Scripts\python.exe main.py
+```
+
+| Opcja | Działanie |
+|---|---|
+| `--demo` | osobna baza z przykładowymi danymi (`dane/demo`) |
+| `--baza PLIK` | inny plik bazy danych |
+| `--bez-kolorow` | wyłącza kolory |
+| `--debug` | szczegółowe logi |
+| `--wersja`, `--pomoc` | wersja i pomoc |
+
+Testy:
+
+```powershell
+.venv\Scripts\python.exe -m pytest
+```
+
+## Menu
+
+| Menu | Opcje |
+|---|---|
+| 1. Transakcje | dodaj wydatek, dodaj przychód, przelew, wydatek w obcej walucie, lista, szukaj i filtruj, edytuj, usuń |
+| 2. Plan | budżety (stan, limit, kopiowanie, usuwanie), cele (postęp, dodawanie, wpłaty, usuwanie), transakcje cykliczne (lista, dodawanie, księgowanie zaległych, wyłączanie, usuwanie) |
+| 3. Analizy | saldo i sumy, podsumowanie miesiąca, kategorie, trend, największe wydatki, prognoza, wykresy PNG |
+| 4. Dane | import CSV, cofnięcie importu, eksport CSV, raport TXT, utworzenie i przywrócenie kopii |
+| 5. Ustawienia | konta, kategorie, reguły kategorii, profile CSV banków, próg ostrzeżeń |
+
+`0` wraca do poprzedniego menu, a słowo `anuluj` przerywa wpisywanie w dowolnym polu. Wartość w nawiasie kwadratowym wstawia sam Enter.
+
+Pliki do wypróbowania importu są w katalogu `przyklady`: poprawny `wyciag_demo.csv` i celowo błędny `wyciag_uszkodzony.csv`.
+
+## Architektura
+
+```
+main.py                 uruchomienie i argumenty
+skarbonka/
+  config.py             stałe i ścieżki
+  wyjatki.py            własne wyjątki
+  demo.py               dane przykładowe
+  models/               co przechowujemy: transakcje, konta, kategorie, plany
+  services/             logika: salda, filtry, budżety, prognoza, import, raporty
+  storage/              baza SQLite, pliki CSV i JSON
+  ui/                   menu, ekrany, wczytywanie i wypisywanie
+  utils/                walidacja, formatowanie, daty, logi
+tests/                  testy pytest
+przyklady/              pliki CSV do importu
+dane/                   baza, kopie, eksporty i logi użytkownika (poza repozytorium)
+```
+
+Zależności idą w jedną stronę: `ui -> services -> storage`, a z `models` korzystają wszystkie warstwy. Logika nie używa `input()`, dzięki czemu można ją testować bez klawiatury.
+
+**Przechowywanie danych**
+
+| Dane | Format | Miejsce |
+|---|---|---|
+| transakcje, konta, kategorie, plany, kursy | SQLite | `dane/skarbonka.db` |
+| kopie zapasowe (także automatyczne, raz dziennie) | JSON | `dane/kopie` |
+| ustawienia i profile banków | JSON | `dane` |
+| import i eksport transakcji | CSV | `dane/eksport` lub dowolna ścieżka |
+| raport miesiąca | TXT | `dane/raporty` |
+| wykresy | PNG | `dane/wykresy` |
+| logi | tekst z rotacją | `dane/logi` |
+
+Kwoty są typu `Decimal`, a w bazie są zapisywane w groszach jako liczby całkowite, więc nie powstają błędy zaokrągleń.
+
+**Jak powstaje prognoza.** Od dzisiejszego salda aplikacja odejmuje lub dodaje niezaksięgowane transakcje cykliczne do końca miesiąca, a potem odejmuje dzienne tempo pozostałych wydatków pomnożone przez liczbę dni. Tempo pochodzi z trzech poprzednich miesięcy: średnia daje wariant realistyczny, najniższe optymistyczny, najwyższe pesymistyczny.
+
+## Biblioteki
+
+| Biblioteka | Po co |
+|---|---|
+| `rich` | tabele, ramki i kolory w terminalu |
+| `matplotlib` | wykresy zapisywane do PNG |
+| `pytest` | testy jednostkowe |
+
+Z biblioteki standardowej między innymi: `sqlite3`, `csv`, `json`, `decimal`, `datetime`, `calendar`, `pathlib`, `logging`, `argparse`, `urllib`, `enum`, `dataclasses`, `abc`, `re`, `random`.
+
+## Spełnienie wymagań
+
+| Ocena | Wymaganie | Realizacja |
+|---|---|---|
+| 3.0 | dane od użytkownika i ich przetwarzanie | `ui/wejscie.py`, `services/` |
+| 3.5 | menu wyboru przetwarzania danych | `ui/menu.py`, menu Analizy |
+| 4.0 | funkcje wbudowane i własne, listy, słowniki | `services/analizy.py`, `services/transakcje.py` |
+| 4.5 | własne moduły i biblioteka standardowa | pięć pakietów w `skarbonka` |
+| 5.0 | zapis i odczyt pliku z menu, obsługa błędów | menu Dane, `storage/`, `wyjatki.py` |
+
+| Element z zajęć | Gdzie w kodzie |
+|---|---|
+| `input()` i `print()` | `wczytaj` w `ui/wejscie.py`, `ui/widoki.py` |
+| typy proste i złożone | `models/`; krotki i zbiory: `odcisk` w `models/transakcja.py`, `przygotuj` w `services/importer.py` |
+| `if`, `match` | `stan` w `models/plan.py`, `termin` w `models/cykliczna.py` |
+| `while`, `break`, `continue` | `uruchom` w `ui/menu.py`, `terminy` w `models/cykliczna.py` |
+| `for`, `range()` | `trend` i `historia_salda` w `services/analizy.py` |
+| `pass` | `_szukaj` w `services/waluty.py` |
+| pliki tekstowe, CSV | `storage/pliki_csv.py`, `zapisz` w `services/raporty.py` |
+| list comprehension | `filtruj` w `services/transakcje.py` |
+| dict comprehension | `wydatki_wg_kategorii` w `services/analizy.py` |
+| set comprehension | `przygotuj` w `services/importer.py` |
+| `len`, `sum`, `min`, `max`, `sorted` | `services/analizy.py`, `services/prognoza.py` |
+| `enumerate`, `zip`, `map`, `filter` | `ui/menu.py`, `services/raporty.py`, `storage/pliki_csv.py`, `services/analizy.py` |
+| metody napisów | `parsuj_kwote` w `utils/walidacja.py` |
+| funkcja bez parametrów | `pokaz_naglowek` w `ui/widoki.py` |
+| funkcje z parametrami i wartościami domyślnymi | `filtruj`, `najwieksze_wydatki`, `parsuj_kwote` |
+| `lambda` | `SORTOWANIA` w `services/transakcje.py`, opcje w `ui/ekran_transakcje.py` |
+| generatory | `terminy` w `models/cykliczna.py`, `strony` w `services/transakcje.py`, `czytaj_wiersze` w `storage/pliki_csv.py` |
+| moduły i pakiety | `models`, `services`, `storage`, `ui`, `utils` |
+| `try / except / else / finally` | `przygotuj` w `services/importer.py`, `main` w `main.py` |
+| `raise`, własne wyjątki | `utils/walidacja.py`, `wyjatki.py` |
+| klasy, dziedziczenie, `@property`, `@dataclass`, `Enum` | `models/` |
+
+## Obsługa błędów
+
+| Sytuacja | Reakcja |
+|---|---|
+| zły typ, puste pole, nieistniejąca data | komunikat i ponowne pytanie |
+| brak pliku, brak dostępu, złe kodowanie | komunikat i powrót do menu |
+| błędny wiersz wyciągu | pominięcie z numerem linii, reszta zostaje |
+| błąd w trakcie importu lub przywracania | wycofanie całej operacji |
+| uszkodzona baza | przeniesienie pliku i propozycja kopii zapasowej |
+| brak internetu | zapisany kurs albo wpisanie go ręcznie |
+| nieprzewidziany błąd | wpis do logu i powrót do menu |
