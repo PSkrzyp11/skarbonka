@@ -1,0 +1,11 @@
+data;kwota;opis;kategoria
+2026-11-02;5200,00;Wynagrodzenie;Wynagrodzenie
+31.02.2026;-10,00;Nieistniejąca data;Jedzenie
+2026-11-05;sto złotych;Kwota słowna;Jedzenie
+2026-11-06;0,00;Kwota zerowa;Jedzenie
+2026-11-07;-25,00;Poprawny wydatek;Nieznana kategoria
+2099-01-01;-5,00;Data z przyszłości;Jedzenie
+2026-11-08
+
+;;;
+2026-11-09;-12,00 EUR;Obca waluta;Jedzenie

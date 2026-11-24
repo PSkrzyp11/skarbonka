@@ -20,6 +20,7 @@ from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.utils.walidacja import (
     parsuj_date,
     parsuj_kwote,
+    parsuj_liczbe,
     parsuj_miesiac,
     parsuj_numer,
     parsuj_tak_nie,
@@ -134,6 +135,15 @@ def wczytaj_tekst(
 def wczytaj_numer(komunikat: str) -> int:
     """Wczytuje dodatnią liczbę całkowitą."""
     return wczytaj(komunikat, parsuj_numer)
+
+
+def wczytaj_liczbe(komunikat: str, maks: int, domyslna: int) -> int:
+    """Wczytuje liczbę całkowitą od zera do podanego maksimum."""
+    return wczytaj(
+        _z_podpowiedzia(komunikat, str(domyslna)),
+        lambda tekst: parsuj_liczbe(tekst, maks),
+        domyslna,
+    )
 
 
 def wczytaj_wybor(

@@ -1,10 +1,11 @@
 """Kategorie: dodawanie, usuwanie i wybór pasujących do transakcji."""
 
+from skarbonka.config import KATEGORIE_DOMYSLNE
 from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
 from skarbonka.storage.repozytoria import Repozytorium
 from skarbonka.utils.walidacja import sprawdz_unikalnosc
-from skarbonka.wyjatki import RekordWUzyciu
+from skarbonka.wyjatki import NieZnalezionoRekordu, RekordWUzyciu
 
 
 class SerwisKategorii:
@@ -35,6 +36,14 @@ class SerwisKategorii:
         if issubclass(rodzaj, Przychod):
             return [k for k in self.wszystkie() if not k.czy_wydatek]
         return []
+
+    def domyslna(self, rodzaj: type[Transakcja]) -> Kategoria:
+        """Zwraca kategorię „Inne”, a gdy jej nie ma – pierwszą pasującą."""
+        pasujace = self.pasujace(rodzaj)
+        if not pasujace:
+            raise NieZnalezionoRekordu(f"Brak kategorii dla rodzaju {rodzaj.RODZAJ}.")
+        inne = [k for k in pasujace if k.nazwa in KATEGORIE_DOMYSLNE]
+        return (inne or pasujace)[0]
 
     def sprawdz_nazwe(self, nazwa: str) -> None:
         """Zgłasza błąd, gdy nazwa jest już zajęta."""

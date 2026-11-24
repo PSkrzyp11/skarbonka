@@ -3,6 +3,7 @@
 from skarbonka.models.enums import TypKonta
 from skarbonka.models.transakcja import Przychod, Wydatek
 from skarbonka.ui import widoki
+from skarbonka.ui.ekran_profile import EkranProfili
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import potwierdz, wczytaj_nazwe, wczytaj_saldo, wybierz
 
@@ -81,4 +82,5 @@ class EkranUstawien(Ekran):
         return [
             OpcjaMenu("Konta", EkranKont(self.serwisy).uruchom),
             OpcjaMenu("Kategorie", EkranKategorii(self.serwisy).uruchom),
+            OpcjaMenu("Profile CSV banków", EkranProfili(self.serwisy).uruchom),
         ]

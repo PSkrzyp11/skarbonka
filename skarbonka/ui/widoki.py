@@ -96,7 +96,7 @@ def pokaz_transakcje(
     )
     for t in transakcje:
         tabela.add_row(
-            str(t.id),
+            str(t.id or "-"),
             formatuj_date(t.data),
             Text(t.ZNAK + formatuj_kwote(t.kwota), style=KOLORY_RODZAJOW[t.RODZAJ]),
             Text(t.opis),
@@ -104,6 +104,14 @@ def pokaz_transakcje(
             Text(nazwy_kategorii.get(t.kategoria_id, "przelew")),
         )
     konsola.print(tabela)
+
+
+def pokaz_bledy(bledy: list[str], ile: int = 10) -> None:
+    """Wypisuje pierwsze błędy z listy."""
+    for tekst in bledy[:ile]:
+        blad(tekst)
+    if len(bledy) > ile:
+        blad(f"...i {len(bledy) - ile} kolejnych.")
 
 
 def pokaz_konta(salda: list[tuple[Konto, Decimal]], razem: Decimal) -> None:

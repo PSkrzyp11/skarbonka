@@ -8,6 +8,7 @@ KATALOG_PROJEKTU = Path(__file__).resolve().parent.parent
 KATALOG_DANYCH = KATALOG_PROJEKTU / "dane"
 PLIK_BAZY = KATALOG_DANYCH / "skarbonka.db"
 KATALOG_EKSPORTU = KATALOG_DANYCH / "eksport"
+PLIK_PROFILI = KATALOG_DANYCH / "profile_csv.json"
 PLIK_LOGU = KATALOG_DANYCH / "logi" / "skarbonka.log"
 
 SLOWO_ANULUJ = "anuluj"
@@ -22,3 +23,4 @@ KATEGORIE_WYDATKOW = (
     "Jedzenie", "Mieszkanie", "Transport", "Zdrowie", "Rozrywka", "Ubrania", "Inne wydatki",
 )
 KATEGORIE_PRZYCHODOW = ("Wynagrodzenie", "Inne przychody")
+KATEGORIE_DOMYSLNE = ("Inne wydatki", "Inne przychody")
