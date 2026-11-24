@@ -4,9 +4,11 @@ from decimal import Decimal
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY, NAZWA_APLIKACJI, SLOWO_ANULUJ
 from skarbonka.models.enums import TypKonta
+from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.services import analizy, rekordy
+from skarbonka.services import kategorie as serwis_kategorii
 from skarbonka.services import konta as serwis_kont
 from skarbonka.services import transakcje as serwis
 from skarbonka.ui.menu import Menu, OpcjaMenu
@@ -41,6 +43,7 @@ class Aplikacja:
 
     def __init__(self) -> None:
         self.konta: list[Konto] = []
+        self.kategorie: list[Kategoria] = serwis_kategorii.domyslne_kategorie()
         self.transakcje: list[Transakcja] = []
         rekordy.dodaj(self.konta, Konto("Portfel", TypKonta.GOTOWKA))
         menu_transakcji = Menu(
@@ -69,7 +72,21 @@ class Aplikacja:
                 OpcjaMenu("Usuń konto", self.usun_konto),
             ],
         )
-        menu_ustawien = Menu("Ustawienia", [OpcjaMenu("Konta", menu_kont.uruchom)])
+        menu_kategorii = Menu(
+            "Kategorie",
+            [
+                OpcjaMenu("Lista kategorii", self.pokaz_kategorie),
+                OpcjaMenu("Dodaj kategorię", self.dodaj_kategorie),
+                OpcjaMenu("Usuń kategorię", self.usun_kategorie),
+            ],
+        )
+        menu_ustawien = Menu(
+            "Ustawienia",
+            [
+                OpcjaMenu("Konta", menu_kont.uruchom),
+                OpcjaMenu("Kategorie", menu_kategorii.uruchom),
+            ],
+        )
         self.menu_glowne = Menu(
             "Menu główne",
             [
@@ -91,7 +108,8 @@ class Aplikacja:
         kwota = wczytaj_kwote()
         data = wczytaj_date()
         opis = wczytaj_tekst("Opis")
-        self._zapisz(rodzaj(data, kwota, opis, konto.id))
+        kategoria = wybierz("Kategoria", serwis_kategorii.pasujace(self.kategorie, rodzaj))
+        self._zapisz(rodzaj(data, kwota, opis, konto.id, kategoria.id))
 
     def dodaj_przelew(self) -> None:
         """Wczytuje dane i dodaje przelew między dwoma kontami."""
@@ -115,8 +133,12 @@ class Aplikacja:
         if not self.transakcje:
             print("Brak transakcji.")
             return
+        nazwy_kont = {k.id: k.nazwa for k in self.konta}
+        nazwy_kategorii = {k.id: k.nazwa for k in self.kategorie}
         for transakcja in serwis.od_najnowszych(self.transakcje):
-            print(transakcja)
+            konto = nazwy_kont[transakcja.konto_id]
+            kategoria = nazwy_kategorii.get(transakcja.kategoria_id, "-")
+            print(f"{transakcja}  [{konto} | {kategoria}]")
         print(f"Razem: {len(self.transakcje)}")
 
     def usun(self) -> None:
@@ -165,6 +187,27 @@ class Aplikacja:
         konto = wybierz("Konto do usunięcia", self.konta)
         if potwierdz(f"Na pewno usunąć „{konto.nazwa}”?"):
             serwis_kont.usun_konto(self.konta, konto, self.transakcje)
+            print("  Usunięto.")
+
+    def pokaz_kategorie(self) -> None:
+        """Wypisuje kategorie w podziale na wydatki i przychody."""
+        for tytul, rodzaj in (("Wydatki", Wydatek), ("Przychody", Przychod)):
+            nazwy = [k.nazwa for k in serwis_kategorii.pasujace(self.kategorie, rodzaj)]
+            print(f"{tytul}: {', '.join(nazwy) or 'brak'}")
+
+    def dodaj_kategorie(self) -> None:
+        """Wczytuje dane i dodaje kategorię."""
+        nazwa = wczytaj_tekst("Nazwa kategorii", MAKS_DLUGOSC_NAZWY)
+        rekordy.sprawdz_nazwe(self.kategorie, nazwa)
+        czy_wydatek = potwierdz("Czy to kategoria wydatków?")
+        rekordy.dodaj(self.kategorie, Kategoria(nazwa, czy_wydatek))
+        print(f"  Dodano: {nazwa}")
+
+    def usun_kategorie(self) -> None:
+        """Usuwa wybraną kategorię po potwierdzeniu."""
+        kategoria = wybierz("Kategoria do usunięcia", self.kategorie)
+        if potwierdz(f"Na pewno usunąć „{kategoria.nazwa}”?"):
+            serwis_kategorii.usun_kategorie(self.kategorie, kategoria, self.transakcje)
             print("  Usunięto.")
 
     def pokaz_miesiac(self) -> None:

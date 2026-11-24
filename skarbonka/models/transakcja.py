@@ -27,6 +27,7 @@ class Transakcja(ABC):
     kwota: Decimal
     opis: str
     konto_id: int
+    kategoria_id: int | None = None
     id: int | None = None
 
     def __post_init__(self) -> None:
