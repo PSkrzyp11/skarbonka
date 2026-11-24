@@ -7,8 +7,8 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, ClassVar, Generic, TypeVar
 
 from skarbonka.models.enums import TypKonta
-from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.importy import Import
+from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.storage.baza import Baza

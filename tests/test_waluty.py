@@ -123,8 +123,10 @@ def test_niepoprawny_kurs(wartosc):
         Kurs("EUR", PIATEK, Decimal(wartosc))
 
 
-def test_przeliczanie():
-    assert Kurs("EUR", PIATEK, Decimal("4.2512")).przelicz(Decimal("12.50")) == Decimal("53.14")
+def test_przeliczanie_zaokragla_do_grosza():
+    kurs = Kurs("EUR", PIATEK, Decimal("4.4559"))
+    assert kurs.przelicz(Decimal("12.50")) == Decimal("55.70")
+    assert kurs.przelicz(Decimal("10")) == Decimal("44.56")
 
 
 def test_parsowanie_kursu():
