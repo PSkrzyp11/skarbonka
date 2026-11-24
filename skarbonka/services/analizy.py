@@ -1,10 +1,10 @@
 """Analizy transakcji: podsumowania, kategorie, trend i największe wydatki."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from skarbonka.models.kategoria import Kategoria
-from skarbonka.models.transakcja import Transakcja, Wydatek
+from skarbonka.models.transakcja import ZERO, Transakcja, Wydatek
 from skarbonka.services.transakcje import bilans, suma_przychodow, suma_wydatkow
 from skarbonka.utils.daty import przesun_miesiac
 
@@ -64,6 +64,25 @@ def trend(
     ostatni = (ostatni or date.today()).replace(day=1)
     miesiace = [przesun_miesiac(ostatni, -i) for i in range(ile - 1, -1, -1)]
     return [(m, podsumowanie_miesiaca(transakcje, m)) for m in miesiace]
+
+
+def historia_salda(
+    transakcje: list[Transakcja], saldo_dzis: Decimal, dzis: date, dni: int = 90
+) -> list[tuple[date, Decimal]]:
+    """Zwraca łączne saldo na koniec kolejnych dni, od najdawniejszego.
+
+    Liczy wstecz: od dzisiejszego salda odejmuje to, co wydarzyło się później.
+    """
+    zmiany: dict[date, Decimal] = {}
+    for t in transakcje:
+        zmiany[t.data] = zmiany.get(t.data, ZERO) + t.wplyw
+    wynik = []
+    saldo = saldo_dzis
+    for i in range(dni + 1):
+        dzien = dzis - timedelta(days=i)
+        wynik.append((dzien, saldo))
+        saldo -= zmiany.get(dzien, ZERO)
+    return wynik[::-1]
 
 
 def najwieksze_wydatki(transakcje: list[Transakcja], ile: int = 5) -> list[Transakcja]:

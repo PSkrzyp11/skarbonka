@@ -57,5 +57,9 @@ class BrakKursu(BladKursu):
     """Z podanego dnia nie ma kursu, np. w weekend."""
 
 
+class BrakBiblioteki(BladSkarbonki):
+    """Nie da się załadować biblioteki potrzebnej do tej opcji."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""

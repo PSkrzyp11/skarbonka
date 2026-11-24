@@ -3,6 +3,7 @@
 from skarbonka.services import analizy
 from skarbonka.services.transakcje import bilans, suma_przychodow, suma_wydatkow
 from skarbonka.ui import widoki
+from skarbonka.ui.ekran_wykresy import EkranWykresow
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import wczytaj_miesiac
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac, formatuj_procent
@@ -21,6 +22,7 @@ class EkranAnaliz(Ekran):
             OpcjaMenu("Trend 6 miesięcy", self.pokaz_trend),
             OpcjaMenu("Największe wydatki", self.pokaz_najwieksze),
             OpcjaMenu("Prognoza salda", self.pokaz_prognoze),
+            OpcjaMenu("Wykresy do PNG", EkranWykresow(self.serwisy).uruchom),
         ]
 
     def pokaz_sumy(self) -> None:
