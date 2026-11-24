@@ -1,0 +1,73 @@
+"""Testy wczytywania danych i menu z podstawionym input()."""
+
+from datetime import date
+from decimal import Decimal
+
+import pytest
+
+from skarbonka.ui import wejscie
+from skarbonka.ui.aplikacja import Aplikacja
+from skarbonka.ui.menu import Menu, OpcjaMenu
+from skarbonka.wyjatki import AnulowanoOperacje, BladSkarbonki, NieZnalezionoRekordu
+
+
+@pytest.fixture
+def odpowiedzi(monkeypatch):
+    """Zwraca funkcję, która ustawia kolejne odpowiedzi użytkownika."""
+
+    def ustaw(*teksty: str) -> None:
+        kolejne = iter(teksty)
+        monkeypatch.setattr("builtins.input", lambda komunikat="": next(kolejne))
+
+    return ustaw
+
+
+def test_kwota_pyta_do_skutku(odpowiedzi):
+    odpowiedzi("abc", "", "-5", "12,50")
+    assert wejscie.wczytaj_kwote() == Decimal("12.50")
+
+
+def test_enter_wstawia_wartosc_domyslna(odpowiedzi):
+    odpowiedzi("", "")
+    assert wejscie.wczytaj_date() == date.today()
+    assert wejscie.wczytaj_kwote(domyslna=Decimal("7")) == Decimal("7")
+
+
+def test_anulowanie(odpowiedzi):
+    odpowiedzi(" ANULUJ ")
+    with pytest.raises(AnulowanoOperacje):
+        wejscie.wczytaj_tekst("Opis")
+
+
+def test_wybor_z_listy(odpowiedzi):
+    odpowiedzi("0", "4", "2")
+    assert wejscie.wybierz("Litera", ["a", "b", "c"]) == "b"
+
+
+def test_wybor_jedynego_i_z_pustej_listy():
+    assert wejscie.wybierz("Litera", ["a"]) == "a"
+    with pytest.raises(NieZnalezionoRekordu):
+        wejscie.wybierz("Litera", [])
+
+
+def test_wybor_wszystkich(odpowiedzi):
+    odpowiedzi("", "1")
+    assert wejscie.wybierz_lub_wszystkie("Litera", ["a"]) is None
+    assert wejscie.wybierz_lub_wszystkie("Litera", ["a"]) == "a"
+
+
+def test_menu_przezywa_blad_opcji(odpowiedzi, capsys):
+    def zepsuta_opcja():
+        raise BladSkarbonki("coś poszło nie tak")
+
+    odpowiedzi("9", "1", "0")
+    Menu("Test", [OpcjaMenu("Zepsuta", zepsuta_opcja)]).uruchom()
+    assert "coś poszło nie tak" in capsys.readouterr().out
+
+
+def test_dodanie_wydatku_przez_menu(odpowiedzi):
+    aplikacja = Aplikacja()
+    odpowiedzi("1", "1", "20", "", "Kawa", "1", "0", "0")
+    aplikacja.uruchom()
+    assert len(aplikacja.transakcje) == 1
+    assert aplikacja.transakcje[0].kwota == Decimal("20")
