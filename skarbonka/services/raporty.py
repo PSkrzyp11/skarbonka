@@ -61,39 +61,49 @@ class SerwisRaportow:
         yield f"SKARBONKA - raport za {formatuj_miesiac(miesiac)}"
         yield f"Utworzono: {datetime.now():%d.%m.%Y %H:%M}"
 
-        yield from self._naglowek("Podsumowanie")
-        yield from (self._linia(nazwa, kwota) for nazwa, kwota in sumy.items())
-        stopa = analizy.stopa_oszczednosci(sumy["Przychody"], sumy["Bilans"])
-        if stopa is not None:
-            yield f"Zaoszczędzono {formatuj_procent(stopa)} przychodów."
+        podsumowanie = [self._linia(nazwa, kwota) for nazwa, kwota in sumy.items()]
+        podsumowanie.append(analizy.opis_oszczednosci(sumy["Przychody"], sumy["Bilans"]))
+        yield from self._sekcja("Podsumowanie", podsumowanie)
 
-        yield from self._naglowek("Wydatki według kategorii")
         kwoty = analizy.wydatki_wg_kategorii(transakcje, self._kategorie.wszystkie())
-        for (nazwa, kwota), procent in zip(kwoty.items(), analizy.udzialy(kwoty).values()):
-            yield f"{self._linia(nazwa, kwota)} {formatuj_procent(procent):>8}"
-
-        yield from self._naglowek("Budżety")
-        for w in self._budzety.wykonanie(miesiac):
-            limit = formatuj_kwote(w.budzet.limit)
-            yield f"{self._linia(w.kategoria, w.wydano)} z {limit}, {w.stan}"
-
-        yield from self._naglowek("Największe wydatki")
-        for wydatek in analizy.najwieksze_wydatki(transakcje):
-            yield f"{formatuj_date(wydatek.data)} {self._linia(wydatek.opis, wydatek.kwota)}"
-
-        yield from self._naglowek("Cele oszczędnościowe")
-        for cel in self._cele.wszystkie():
-            yield f"{self._linia(cel.nazwa, cel.odlozono)} {formatuj_procent(cel.procent):>8}"
-
-        yield from self._naglowek("Salda kont w dniu utworzenia raportu")
-        for konto in self._konta.wszystkie():
-            yield self._linia(konto.nazwa, self._konta.saldo(konto.id))
-        yield self._linia("Razem", self._konta.saldo())
+        procenty = analizy.udzialy(kwoty).values()
+        yield from self._sekcja(
+            "Wydatki według kategorii",
+            [
+                f"{self._linia(nazwa, kwota)} {formatuj_procent(procent):>8}"
+                for (nazwa, kwota), procent in zip(kwoty.items(), procenty)
+            ],
+        )
+        yield from self._sekcja(
+            "Budżety",
+            [
+                f"{self._linia(w.kategoria, w.wydano)} z {formatuj_kwote(w.budzet.limit)}, {w.stan}"
+                for w in self._budzety.wykonanie(miesiac)
+            ],
+        )
+        yield from self._sekcja(
+            "Największe wydatki",
+            [
+                f"{formatuj_date(w.data)} {self._linia(w.opis, w.kwota)}"
+                for w in analizy.najwieksze_wydatki(transakcje)
+            ],
+        )
+        yield from self._sekcja(
+            "Cele oszczędnościowe",
+            [
+                f"{self._linia(cel.nazwa, cel.odlozono)} {formatuj_procent(cel.procent):>8}"
+                for cel in self._cele.wszystkie()
+            ],
+        )
+        salda = [self._linia(k.nazwa, self._konta.saldo(k.id)) for k in self._konta.wszystkie()]
+        salda.append(self._linia("Razem", self._konta.saldo()))
+        yield from self._sekcja("Salda kont w dniu utworzenia raportu", salda)
 
     @staticmethod
-    def _naglowek(tytul: str) -> tuple[str, ...]:
-        """Zwraca linie nagłówka sekcji."""
-        return ("", tytul, "-" * SZEROKOSC)
+    def _sekcja(tytul: str, linie: list[str]) -> Iterator[str]:
+        """Generator: oddaje nagłówek i linie sekcji albo słowo „brak”."""
+        yield from ("", tytul, "-" * SZEROKOSC)
+        yield from (linia for linia in linie or ["brak"] if linia)
 
     @staticmethod
     def _linia(nazwa: str, kwota: Decimal) -> str:

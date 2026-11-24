@@ -121,6 +121,12 @@ def test_stopa_oszczednosci():
     assert analizy.stopa_oszczednosci(Decimal("0"), Decimal("-10")) is None
 
 
+def test_opis_oszczednosci():
+    assert analizy.opis_oszczednosci(Decimal("200"), Decimal("50")).startswith("Zaoszczędzono 25,0%")
+    assert analizy.opis_oszczednosci(Decimal("200"), Decimal("-1")).startswith("Wydatki były")
+    assert analizy.opis_oszczednosci(Decimal("0"), Decimal("-1")) == ""
+
+
 def test_wydatki_wg_kategorii(transakcje, kategorie):
     wynik = analizy.wydatki_wg_kategorii(transakcje, kategorie)
     assert list(wynik.items()) == [

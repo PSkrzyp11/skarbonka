@@ -6,10 +6,14 @@ from decimal import Decimal
 
 import pytest
 
+from skarbonka.models.cykliczna import Cykliczna
+from skarbonka.models.enums import Czestotliwosc
+from skarbonka.models.kurs import Kurs
 from skarbonka.models.transakcja import Wydatek
 from skarbonka.services import kopie as modul_kopii
 from skarbonka.services.zestaw import dodaj_dane_startowe, utworz_serwisy
-from skarbonka.storage.baza import Baza
+from skarbonka.storage.baza import TABELE, Baza
+from skarbonka.storage.repozytoria_planu import RepozytoriumKursow
 from skarbonka.ui.ratunek import otworz_baze
 from skarbonka.wyjatki import BladPliku, UszkodzonyPlik
 
@@ -44,6 +48,28 @@ def test_kopia_przywraca_te_same_dane(serwisy_plikowe):
     serwisy.kopie.przywroc(kopia)
     po = (serwisy.konta.wszystkie(), serwisy.kategorie.wszystkie(), serwisy.transakcje.wszystkie())
     assert po == przed
+
+
+def test_kopia_obejmuje_wszystkie_tabele(serwisy_plikowe):
+    s = serwisy_plikowe
+    dzien = date(2026, 11, 1)
+    s.budzety.ustaw(1, dzien, Decimal("100"))
+    s.cele.wplac(s.cele.dodaj("Wakacje", Decimal("1000"), dzien), Decimal("10"))
+    s.kategoryzator.dodaj("kawa", s.kategorie.pobierz(1))
+    s.importer.zapisz("plik.csv", [])
+    cykliczna = Cykliczna(
+        "Czynsz", "wydatek", Decimal("5"), 1, 1, date.today(), Czestotliwosc.MIESIAC
+    )
+    s.cykliczne.zaksieguj(s.cykliczne.dodaj(cykliczna), date.today())
+    RepozytoriumKursow(s.kopie._baza).dodaj(Kurs("EUR", dzien, Decimal("4.25")))
+
+    kopia = s.kopie.utworz()
+    tresc = json.loads(kopia.read_text(encoding="utf-8"))["tabele"]
+    assert set(tresc) == set(TABELE)
+    assert all(tresc.values())
+    s.kopie.przywroc(kopia)
+    ponowna = json.loads(s.kopie.utworz("druga").read_text(encoding="utf-8"))["tabele"]
+    assert ponowna == tresc
 
 
 def test_przed_przywroceniem_powstaje_kopia(serwisy_plikowe):

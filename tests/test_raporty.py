@@ -38,6 +38,7 @@ def test_pusty_miesiac(serwisy):
     linie = list(serwisy.raporty.linie(date(2020, 1, 1)))
     assert linie[0].endswith("styczeń 2020")
     assert not any("Zaoszczędzono" in linia for linia in linie)
+    assert linie.count("brak") == 4
 
 
 def test_nie_mozna_zapisac(serwisy, tmp_path):

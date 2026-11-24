@@ -7,6 +7,7 @@ from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.transakcja import ZERO, Transakcja, Wydatek
 from skarbonka.services.transakcje import bilans, suma_przychodow, suma_wydatkow
 from skarbonka.utils.daty import przesun_miesiac
+from skarbonka.utils.formatowanie import formatuj_procent
 
 
 def z_miesiaca(transakcje: list[Transakcja], miesiac: date) -> list[Transakcja]:
@@ -33,6 +34,16 @@ def stopa_oszczednosci(przychody: Decimal, zostalo: Decimal) -> float | None:
     if przychody == 0:
         return None
     return float(zostalo / przychody * 100)
+
+
+def opis_oszczednosci(przychody: Decimal, zostalo: Decimal) -> str:
+    """Zwraca zdanie o oszczędnościach, a bez przychodów pusty tekst."""
+    stopa = stopa_oszczednosci(przychody, zostalo)
+    if stopa is None:
+        return ""
+    if stopa < 0:
+        return "Wydatki były większe niż przychody."
+    return f"Zaoszczędzono {formatuj_procent(stopa)} przychodów."
 
 
 def wydatki_wg_kategorii(

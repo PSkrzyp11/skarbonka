@@ -6,7 +6,7 @@ from skarbonka.ui import widoki
 from skarbonka.ui.ekran_wykresy import EkranWykresow
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import wczytaj_miesiac
-from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac, formatuj_procent
+from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac
 
 
 class EkranAnaliz(Ekran):
@@ -47,9 +47,7 @@ class EkranAnaliz(Ekran):
         print(f"{formatuj_miesiac(miesiac).capitalize()}, transakcje: {liczba}")
         sumy = analizy.podsumowanie_miesiaca(transakcje, miesiac)
         widoki.pokaz_kwoty(sumy)
-        stopa = analizy.stopa_oszczednosci(sumy["Przychody"], sumy["Bilans"])
-        if stopa is not None:
-            print(f"Zaoszczędzono {formatuj_procent(stopa)} przychodów.")
+        print(analizy.opis_oszczednosci(sumy["Przychody"], sumy["Bilans"]))
 
     def pokaz_kategorie(self) -> None:
         """Wypisuje udział kategorii w wydatkach miesiąca."""
