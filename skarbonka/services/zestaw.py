@@ -7,7 +7,12 @@ from skarbonka.models.enums import TypKonta
 from skarbonka.services.kategorie import SerwisKategorii
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.transakcje import SerwisTransakcji
-from skarbonka.storage.repozytoria import Repozytorium
+from skarbonka.storage.baza import Baza
+from skarbonka.storage.repozytoria import (
+    RepozytoriumKategorii,
+    RepozytoriumKont,
+    RepozytoriumTransakcji,
+)
 
 
 @dataclass
@@ -19,19 +24,17 @@ class Serwisy:
     kategorie: SerwisKategorii
 
 
-def utworz_serwisy() -> Serwisy:
-    """Tworzy serwisy na wspólnych repozytoriach i uzupełnia dane startowe."""
-    transakcje = Repozytorium()
-    serwisy = Serwisy(
+def utworz_serwisy(baza: Baza) -> Serwisy:
+    """Tworzy serwisy korzystające ze wspólnej bazy."""
+    transakcje = RepozytoriumTransakcji(baza)
+    return Serwisy(
         transakcje=SerwisTransakcji(transakcje),
-        konta=SerwisKont(Repozytorium(), transakcje),
-        kategorie=SerwisKategorii(Repozytorium(), transakcje),
+        konta=SerwisKont(RepozytoriumKont(baza), transakcje),
+        kategorie=SerwisKategorii(RepozytoriumKategorii(baza), transakcje),
     )
-    _dodaj_dane_startowe(serwisy)
-    return serwisy
 
 
-def _dodaj_dane_startowe(serwisy: Serwisy) -> None:
+def dodaj_dane_startowe(serwisy: Serwisy) -> None:
     """Dodaje konto i kategorie, jeśli jeszcze ich nie ma."""
     if not serwisy.konta.wszystkie():
         serwisy.konta.dodaj("Portfel", TypKonta.GOTOWKA)

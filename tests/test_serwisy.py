@@ -9,7 +9,7 @@ from skarbonka.models.enums import TypKonta
 from skarbonka.models.transakcja import Przelew, Przychod, Wydatek
 from skarbonka.services import analizy
 from skarbonka.services.transakcje import bilans, posortuj, strony, suma_wydatkow
-from skarbonka.services.zestaw import utworz_serwisy
+from skarbonka.services.zestaw import dodaj_dane_startowe, utworz_serwisy
 from skarbonka.wyjatki import BladWalidacji, RekordWUzyciu
 
 LISTOPAD = date(2026, 11, 1)
@@ -91,8 +91,10 @@ def test_usuwanie_kategorii(serwisy, kategorie):
     assert len(serwisy.kategorie.wszystkie()) == 3
 
 
-def test_dane_startowe():
-    serwisy = utworz_serwisy()
+def test_dane_startowe(baza):
+    serwisy = utworz_serwisy(baza)
+    for _ in range(2):
+        dodaj_dane_startowe(serwisy)
     assert list(serwisy.konta.nazwy().values()) == ["Portfel"]
     assert serwisy.kategorie.pasujace(Wydatek)
     assert serwisy.kategorie.pasujace(Przychod)

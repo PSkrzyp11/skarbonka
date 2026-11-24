@@ -9,11 +9,13 @@ from skarbonka.models.enums import TypKonta
 from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
-from skarbonka.services.kategorie import SerwisKategorii
-from skarbonka.services.konta import SerwisKont
-from skarbonka.services.transakcje import SerwisTransakcji
-from skarbonka.services.zestaw import Serwisy
-from skarbonka.storage.repozytoria import Repozytorium
+from skarbonka.services.zestaw import Serwisy, utworz_serwisy
+from skarbonka.storage.baza import W_PAMIECI, Baza
+from skarbonka.storage.repozytoria import (
+    RepozytoriumKategorii,
+    RepozytoriumKont,
+    RepozytoriumTransakcji,
+)
 
 
 @pytest.fixture
@@ -49,17 +51,21 @@ def transakcje() -> list[Transakcja]:
 
 
 @pytest.fixture
-def serwisy(konta, kategorie, transakcje) -> Serwisy:
+def baza():
+    """Pusta baza w pamięci, zamykana po teście."""
+    wynik = Baza(W_PAMIECI)
+    yield wynik
+    wynik.zamknij()
+
+
+@pytest.fixture
+def serwisy(baza, konta, kategorie, transakcje) -> Serwisy:
     """Serwisy działające na przykładowych danych."""
-    repozytoria = []
-    for rekordy in (konta, kategorie, transakcje):
-        repozytorium = Repozytorium()
+    for repozytorium, rekordy in (
+        (RepozytoriumKont(baza), konta),
+        (RepozytoriumKategorii(baza), kategorie),
+        (RepozytoriumTransakcji(baza), transakcje),
+    ):
         for rekord in rekordy:
             repozytorium.dodaj(rekord)
-        repozytoria.append(repozytorium)
-    repo_kont, repo_kategorii, repo_transakcji = repozytoria
-    return Serwisy(
-        transakcje=SerwisTransakcji(repo_transakcji),
-        konta=SerwisKont(repo_kont, repo_transakcji),
-        kategorie=SerwisKategorii(repo_kategorii, repo_transakcji),
-    )
+    return utworz_serwisy(baza)

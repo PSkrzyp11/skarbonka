@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from skarbonka.services.zestaw import utworz_serwisy
+from skarbonka.services.zestaw import dodaj_dane_startowe, utworz_serwisy
 from skarbonka.ui import wejscie
 from skarbonka.ui.aplikacja import Aplikacja
 from skarbonka.ui.menu import Menu, OpcjaMenu
@@ -86,8 +86,9 @@ def test_koniec_danych_przerywa_menu(odpowiedzi):
         Menu("Test", []).uruchom()
 
 
-def test_dodanie_wydatku_przez_menu(odpowiedzi):
-    serwisy = utworz_serwisy()
+def test_dodanie_wydatku_przez_menu(odpowiedzi, baza):
+    serwisy = utworz_serwisy(baza)
+    dodaj_dane_startowe(serwisy)
     odpowiedzi("1", "1", "20", "", "Kawa", "1", "0", "0")
     Aplikacja(serwisy).uruchom()
     transakcje = serwisy.transakcje.wszystkie()

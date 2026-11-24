@@ -9,6 +9,7 @@ def test_wartosci_domyslne():
     opcje = wczytaj_argumenty([])
     assert opcje.bez_kolorow is False
     assert opcje.debug is False
+    assert opcje.baza.name == "skarbonka.db"
 
 
 def test_wlaczone_opcje():

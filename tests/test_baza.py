@@ -2,15 +2,8 @@
 
 import pytest
 
-from skarbonka.storage.baza import W_PAMIECI, Baza
+from skarbonka.storage.baza import Baza
 from skarbonka.wyjatki import BladBazy, UszkodzonaBaza
-
-
-@pytest.fixture
-def baza():
-    wynik = Baza(W_PAMIECI)
-    yield wynik
-    wynik.zamknij()
 
 
 def liczba_kategorii(baza) -> int:
