@@ -67,6 +67,8 @@ class Aplikacja:
             [
                 OpcjaMenu("Saldo i sumy", self.pokaz_sumy),
                 OpcjaMenu("Podsumowanie miesiąca", self.pokaz_miesiac),
+                OpcjaMenu("Wydatki według kategorii", self.pokaz_kategorie_wydatkow),
+                OpcjaMenu("Trend 6 miesięcy", self.pokaz_trend),
                 OpcjaMenu("Największe wydatki", self.pokaz_najwieksze),
             ],
         )
@@ -277,6 +279,27 @@ class Aplikacja:
         stopa = analizy.stopa_oszczednosci(podsumowanie["Przychody"], podsumowanie["Bilans"])
         if stopa is not None:
             print(f"{'Oszczędności':<12} {formatuj_procent(stopa):>16}")
+
+    def pokaz_kategorie_wydatkow(self) -> None:
+        """Wypisuje kategorie miesiąca z kwotą, procentem i paskiem."""
+        wybrane = analizy.z_miesiaca(self.transakcje, wczytaj_miesiac())
+        kwoty = analizy.wydatki_wg_kategorii(wybrane, self.kategorie)
+        if not kwoty:
+            print("Brak wydatków w tym miesiącu.")
+            return
+        procenty = analizy.udzialy(kwoty)
+        for nazwa, kwota in kwoty.items():
+            pasek = "█" * max(1, round(procenty[nazwa] / 5))
+            procent = formatuj_procent(procenty[nazwa])
+            print(f"{nazwa:<25} {formatuj_kwote(kwota):>16} {procent:>7}  {pasek}")
+
+    def pokaz_trend(self) -> None:
+        """Wypisuje przychody, wydatki i bilans ostatnich miesięcy."""
+        kolumny = ("Przychody", "Wydatki", "Bilans")
+        print(f"{'Miesiąc':<18}" + "".join(f"{nazwa:>18}" for nazwa in kolumny))
+        for miesiac, sumy in analizy.trend(self.transakcje):
+            kwoty = "".join(f"{formatuj_kwote(sumy[nazwa]):>18}" for nazwa in kolumny)
+            print(f"{formatuj_miesiac(miesiac):<18}{kwoty}")
 
     def pokaz_najwieksze(self) -> None:
         """Wypisuje pięć największych wydatków."""

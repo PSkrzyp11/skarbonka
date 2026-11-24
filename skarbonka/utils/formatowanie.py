@@ -9,11 +9,9 @@ NAZWY_MIESIECY = (
 )
 
 
-def formatuj_kwote(kwota: Decimal, ze_znakiem: bool = False) -> str:
+def formatuj_kwote(kwota: Decimal) -> str:
     """Zwraca kwotę w postaci „1 234,50 zł”."""
-    znak = "+" if ze_znakiem else ""
-    tekst = f"{kwota:{znak},.2f}"
-    return tekst.replace(",", " ").replace(".", ",") + " zł"
+    return f"{kwota:,.2f}".replace(",", " ").replace(".", ",") + " zł"
 
 
 def formatuj_date(dzien: date) -> str:
