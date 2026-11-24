@@ -1,0 +1,1 @@
+"""Przechowywanie danych."""
