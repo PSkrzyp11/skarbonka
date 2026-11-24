@@ -31,7 +31,7 @@ class EkranWykresow(Ekran):
             print("Brak wydatków w tym miesiącu.")
             return
         sciezka = self._sciezka("kategorie")
-        wykresy.wykres_kategorii(kwoty, miesiac, sciezka)
+        wykresy.zapisz(wykresy.rysuj_kategorie(kwoty, wykresy.tytul_kategorii(miesiac)), sciezka)
         self._zakoncz(sciezka)
 
     def trend(self) -> None:
@@ -41,7 +41,8 @@ class EkranWykresow(Ekran):
             print("Brak transakcji.")
             return
         sciezka = self._sciezka("trend")
-        wykresy.wykres_trendu(analizy.trend(transakcje), sciezka)
+        rysunek = wykresy.rysuj_trend(analizy.trend(transakcje), "Przychody i wydatki")
+        wykresy.zapisz(rysunek, sciezka)
         self._zakoncz(sciezka)
 
     def saldo(self) -> None:
@@ -54,7 +55,7 @@ class EkranWykresow(Ekran):
             transakcje, self.serwisy.konta.saldo(), date.today()
         )
         sciezka = self._sciezka("saldo")
-        wykresy.wykres_salda(historia, sciezka)
+        wykresy.zapisz(wykresy.rysuj_saldo(historia, "Łączne saldo kont"), sciezka)
         self._zakoncz(sciezka)
 
     def _sciezka(self, nazwa: str) -> Path:

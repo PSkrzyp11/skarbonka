@@ -1,6 +1,11 @@
-"""Otwieranie bazy z ratunkiem, gdy jej plik jest uszkodzony."""
+"""Otwieranie bazy z ratunkiem, gdy jej plik jest uszkodzony.
+
+Sposób pokazania komunikatu i zadania pytania jest parametrem, dlatego z tego
+samego kodu korzysta konsola i okno.
+"""
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from skarbonka.services.zestaw import utworz_serwisy
@@ -11,8 +16,11 @@ from skarbonka.wyjatki import AnulowanoOperacje, BladPliku, UszkodzonaBaza
 
 logger = logging.getLogger(__name__)
 
+Pokaz = Callable[[str], None]
+Zapytaj = Callable[[str], bool]
 
-def otworz_baze(sciezka: Path) -> Baza:
+
+def otworz_baze(sciezka: Path, pokaz: Pokaz = widoki.blad, zapytaj: Zapytaj = potwierdz) -> Baza:
     """Otwiera bazę, a uszkodzoną odkłada na bok i zastępuje nową.
 
     Uszkodzony plik nigdy nie jest kasowany.
@@ -21,33 +29,33 @@ def otworz_baze(sciezka: Path) -> Baza:
         return Baza(sciezka)
     except UszkodzonaBaza as blad:
         logger.error("%s", blad)
-        widoki.blad(str(blad))
+        komunikat = str(blad)
     odlozona = odloz_uszkodzona(sciezka)
-    widoki.blad(f"Uszkodzony plik przeniesiono do {odlozona}. Tworzę nową bazę.")
+    pokaz(f"{komunikat} Plik przeniesiono do {odlozona}. Tworzę nową bazę.")
     baza = Baza(sciezka)
     try:
-        _zaproponuj_kopie(baza)
+        _zaproponuj_kopie(baza, pokaz, zapytaj)
     except AnulowanoOperacje as blad:
-        widoki.blad(str(blad))
+        pokaz(str(blad))
     return baza
 
 
-def _zaproponuj_kopie(baza: Baza) -> None:
+def _zaproponuj_kopie(baza: Baza, pokaz: Pokaz, zapytaj: Zapytaj) -> None:
     """Przywraca najnowszą poprawną kopię, jeśli użytkownik się zgodzi."""
     serwis = utworz_serwisy(baza).kopie
     kopie = serwis.lista()
     if not kopie:
-        print("Nie ma kopii zapasowej do przywrócenia.")
+        pokaz("Nie ma kopii zapasowej do przywrócenia.")
         return
-    if not potwierdz("Przywrócić najnowszą kopię zapasową?"):
+    if not zapytaj("Przywrócić najnowszą kopię zapasową?"):
         return
     for kopia in kopie:
         try:
             serwis.przywroc(kopia)
         except BladPliku as blad:
-            widoki.blad(f"{blad} Próbuję starszej kopii.")
+            pokaz(f"{blad} Próbuję starszej kopii.")
             continue
-        widoki.sukces(f"Przywrócono kopię {kopia.name}.")
+        pokaz(f"Przywrócono kopię {kopia.name}.")
         break
     else:
-        widoki.blad("Żadnej kopii nie udało się przywrócić.")
+        pokaz("Żadnej kopii nie udało się przywrócić.")

@@ -10,15 +10,21 @@ from skarbonka.wyjatki import BladPliku
 logger = logging.getLogger(__name__)
 
 
+MOTYWY = ("jasny", "ciemny")
+
+
 @dataclass
 class Ustawienia:
     """Wartości, które użytkownik może zmienić."""
 
     prog_ostrzezen: int = 80
+    motyw: str = MOTYWY[0]
 
     def __post_init__(self) -> None:
         if not isinstance(self.prog_ostrzezen, int) or not 1 <= self.prog_ostrzezen <= 100:
             raise ValueError("Próg ostrzeżeń musi być liczbą od 1 do 100.")
+        if self.motyw not in MOTYWY:
+            raise ValueError(f"Dostępne motywy: {', '.join(MOTYWY)}.")
 
 
 class SerwisUstawien:

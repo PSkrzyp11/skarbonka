@@ -16,9 +16,13 @@ NAGLOWEK_PNG = b"\x89PNG"
 
 def test_wszystkie_wykresy_powstaja(transakcje, tmp_path):
     historia = analizy.historia_salda(transakcje, Decimal("100"), date(2026, 11, 24))
-    wykresy.wykres_kategorii(KWOTY, LISTOPAD, tmp_path / "nowy" / "a.png")
-    wykresy.wykres_trendu(analizy.trend(transakcje, LISTOPAD), tmp_path / "nowy" / "b.png")
-    wykresy.wykres_salda(historia, tmp_path / "nowy" / "c.png")
+    rysunki = (
+        wykresy.rysuj_kategorie(KWOTY, wykresy.tytul_kategorii(LISTOPAD)),
+        wykresy.rysuj_trend(analizy.trend(transakcje, LISTOPAD), paleta=wykresy.CIEMNA),
+        wykresy.rysuj_saldo(historia),
+    )
+    for numer, rysunek in enumerate(rysunki):
+        wykresy.zapisz(rysunek, tmp_path / "nowy" / f"{numer}.png")
     pliki = sorted((tmp_path / "nowy").iterdir())
     assert len(pliki) == 3
     assert all(plik.read_bytes().startswith(NAGLOWEK_PNG) for plik in pliki)
@@ -28,13 +32,13 @@ def test_nie_mozna_zapisac(tmp_path):
     przeszkoda = tmp_path / "plik"
     przeszkoda.write_text("", encoding="utf-8")
     with pytest.raises(BladPliku):
-        wykresy.wykres_kategorii(KWOTY, LISTOPAD, przeszkoda / "a.png")
+        wykresy.zapisz(wykresy.rysuj_kategorie(KWOTY), przeszkoda / "a.png")
 
 
-def test_brak_matplotlib(tmp_path, monkeypatch):
+def test_brak_matplotlib(monkeypatch):
     monkeypatch.setitem(sys.modules, "matplotlib.figure", None)
     with pytest.raises(BrakBiblioteki):
-        wykresy.wykres_kategorii(KWOTY, LISTOPAD, tmp_path / "a.png")
+        wykresy.rysuj_kategorie(KWOTY)
 
 
 def test_historia_salda(transakcje):
