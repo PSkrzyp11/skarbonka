@@ -7,7 +7,7 @@ from skarbonka.models.transakcja import Transakcja
 from skarbonka.services.transakcje import posortuj
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
-from skarbonka.ui.wejscie import potwierdz, wczytaj_sciezke, wybierz
+from skarbonka.ui.wejscie import potwierdz, wczytaj_miesiac, wczytaj_sciezke, wybierz
 
 LICZBA_W_PODGLADZIE = 5
 LICZBA_KOPII = 10
@@ -15,7 +15,7 @@ INNY_PLIK = "inny plik..."
 
 
 class EkranDanych(Ekran):
-    """Import, eksport i kopie zapasowe."""
+    """Import, eksport, raporty i kopie zapasowe."""
 
     TYTUL = "Dane"
 
@@ -24,6 +24,7 @@ class EkranDanych(Ekran):
             OpcjaMenu("Import wyciągu CSV", self.importuj),
             OpcjaMenu("Cofnij ostatni import", self.cofnij_import),
             OpcjaMenu("Eksport transakcji do CSV", self.eksportuj),
+            OpcjaMenu("Raport miesiąca TXT", self.zapisz_raport),
             OpcjaMenu("Utwórz kopię zapasową", self.utworz_kopie),
             OpcjaMenu("Przywróć kopię zapasową", self.przywroc_kopie),
         ]
@@ -59,6 +60,15 @@ class EkranDanych(Ekran):
         if potwierdz("Usunąć wszystkie transakcje z tego importu?"):
             liczba = self.serwisy.importer.cofnij(ostatni)
             widoki.sukces(f"Usunięto {liczba} transakcji.")
+
+    def zapisz_raport(self) -> None:
+        """Zapisuje raport wybranego miesiąca."""
+        miesiac = wczytaj_miesiac()
+        domyslna = self.serwisy.katalog / "raporty" / f"raport-{miesiac:%Y-%m}.txt"
+        sciezka = wczytaj_sciezke("Plik docelowy", domyslna)
+        if self._mozna_zapisac(sciezka):
+            self.serwisy.raporty.zapisz(miesiac, sciezka)
+            widoki.sukces(f"Zapisano raport: {sciezka}")
 
     def utworz_kopie(self) -> None:
         """Zapisuje wszystkie dane do pliku JSON."""

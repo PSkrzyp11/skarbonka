@@ -15,6 +15,7 @@ from skarbonka.services.kopie import SerwisKopii
 from skarbonka.services.planowanie import SerwisBudzetow, SerwisCeli
 from skarbonka.services.profile import SerwisProfili
 from skarbonka.services.prognoza import SerwisPrognozy
+from skarbonka.services.raporty import SerwisRaportow
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.services.ustawienia import SerwisUstawien
 from skarbonka.services.waluty import SerwisWalut
@@ -53,6 +54,7 @@ class Serwisy:
     importer: Importer
     kopie: SerwisKopii
     profile: SerwisProfili
+    raporty: SerwisRaportow
     ustawienia: SerwisUstawien
 
 
@@ -92,14 +94,16 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     kategorie = SerwisKategorii(repo_kategorii, repo_transakcji)
     cykliczne = SerwisCyklicznych(baza, repo_cyklicznych, transakcje)
     kategoryzator = Kategoryzator(baza, repo_regul, kategorie, transakcje)
+    budzety = SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia)
+    cele = SerwisCeli(repo_celi, repo_wplat)
     return Serwisy(
         katalog=katalog,
         transakcje=transakcje,
         konta=konta,
         kategorie=kategorie,
         kategoryzator=kategoryzator,
-        budzety=SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia),
-        cele=SerwisCeli(repo_celi, repo_wplat),
+        budzety=budzety,
+        cele=cele,
         cykliczne=cykliczne,
         prognoza=SerwisPrognozy(transakcje, konta, cykliczne),
         waluty=SerwisWalut(repo_kursow),
@@ -107,6 +111,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         importer=Importer(baza, repo_transakcji, repo_importow, kategorie, kategoryzator),
         kopie=SerwisKopii(baza, repozytoria),
         profile=SerwisProfili(katalog / "profile_csv.json"),
+        raporty=SerwisRaportow(transakcje, konta, kategorie, budzety, cele),
         ustawienia=ustawienia,
     )
 
