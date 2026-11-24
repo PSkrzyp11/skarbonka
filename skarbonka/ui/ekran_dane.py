@@ -11,6 +11,8 @@ from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import potwierdz, wczytaj_sciezke, wybierz
 
 LICZBA_W_PODGLADZIE = 5
+LICZBA_KOPII = 10
+INNY_PLIK = "inny plik..."
 
 
 class EkranDanych(Ekran):
@@ -24,6 +26,7 @@ class EkranDanych(Ekran):
             OpcjaMenu("Cofnij ostatni import", self.cofnij_import),
             OpcjaMenu("Eksport transakcji do CSV", self.eksportuj),
             OpcjaMenu("Utwórz kopię zapasową", self.utworz_kopie),
+            OpcjaMenu("Przywróć kopię zapasową", self.przywroc_kopie),
         ]
 
     def importuj(self) -> None:
@@ -62,6 +65,17 @@ class EkranDanych(Ekran):
         """Zapisuje wszystkie dane do pliku JSON."""
         sciezka = self.serwisy.kopie.utworz()
         widoki.sukces(f"Utworzono kopię: {sciezka}")
+
+    def przywroc_kopie(self) -> None:
+        """Zastępuje dane wybraną kopią po potwierdzeniu."""
+        kopie = {plik.name: plik for plik in self.serwisy.kopie.lista()[:LICZBA_KOPII]}
+        wybor = wybierz("Kopia", [*kopie, INNY_PLIK])
+        sciezka = kopie.get(wybor) or wczytaj_sciezke("Plik kopii")
+        liczby = self.serwisy.kopie.policz(sciezka)
+        print("W kopii:", ", ".join(f"{nazwa} {ile}" for nazwa, ile in liczby.items()))
+        if potwierdz("Obecne dane zostaną zastąpione. Kontynuować?"):
+            self.serwisy.kopie.przywroc(sciezka)
+            widoki.sukces("Przywrócono dane z kopii.")
 
     def _pokaz_poczatek(self, tytul: str, transakcje: list[Transakcja]) -> None:
         """Wypisuje kilka pierwszych transakcji z listy."""

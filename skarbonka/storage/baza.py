@@ -88,7 +88,7 @@ class Baza:
             raise BladBazy("Baza danych jest zamknięta.")
         try:
             return self._polaczenie.execute(sql, parametry)
-        except sqlite3.Error as blad:
+        except (sqlite3.Error, OverflowError, ValueError) as blad:
             raise BladBazy(f"Błąd bazy danych: {blad}") from blad
 
     def zapytaj(self, sql: str, parametry: tuple | list = ()) -> list[sqlite3.Row]:
@@ -98,6 +98,10 @@ class Baza:
             return kursor.fetchall()
         except sqlite3.Error as blad:
             raise BladBazy(f"Błąd odczytu bazy danych: {blad}") from blad
+
+    def kolumny(self, tabela: str) -> set[str]:
+        """Zwraca nazwy kolumn tabeli."""
+        return {wiersz["name"] for wiersz in self.zapytaj(f"PRAGMA table_info({tabela})")}
 
     def wstaw(self, tabela: str, wiersz: dict[str, Any]) -> int:
         """Dodaje wiersz i zwraca jego numer."""

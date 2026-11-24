@@ -53,12 +53,12 @@ def pokaz_menu(tytul: str, pozycje: dict[str, str]) -> None:
 
 def sukces(tekst: str) -> None:
     """Wypisuje potwierdzenie wykonanej operacji."""
-    konsola.print(Text(f"  {tekst}", style="green"))
+    konsola.print(Text(f"  {tekst}", style="green"), soft_wrap=True)
 
 
 def blad(tekst: str) -> None:
     """Wypisuje komunikat o błędzie."""
-    konsola.print(Text(f"  ! {tekst}", style="red"))
+    konsola.print(Text(f"  ! {tekst}", style="red"), soft_wrap=True)
 
 
 def _tabela(*kolumny: tuple[str, str]) -> Table:

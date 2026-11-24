@@ -36,17 +36,22 @@ class Serwisy:
 
 def utworz_serwisy(baza: Baza, plik_profili: Path = PLIK_PROFILI) -> Serwisy:
     """Tworzy serwisy korzystające ze wspólnej bazy."""
-    transakcje = RepozytoriumTransakcji(baza)
-    konta = SerwisKont(RepozytoriumKont(baza), transakcje)
-    kategorie = SerwisKategorii(RepozytoriumKategorii(baza), transakcje)
+    repo_transakcji = RepozytoriumTransakcji(baza)
+    repo_kont = RepozytoriumKont(baza)
+    repo_kategorii = RepozytoriumKategorii(baza)
+    repo_importow = RepozytoriumImportow(baza)
+    konta = SerwisKont(repo_kont, repo_transakcji)
+    kategorie = SerwisKategorii(repo_kategorii, repo_transakcji)
     return Serwisy(
-        transakcje=SerwisTransakcji(transakcje),
+        transakcje=SerwisTransakcji(repo_transakcji),
         konta=konta,
         kategorie=kategorie,
         eksporter=Eksporter(konta, kategorie),
-        importer=Importer(baza, transakcje, RepozytoriumImportow(baza), kategorie),
+        importer=Importer(baza, repo_transakcji, repo_importow, kategorie),
         profile=SerwisProfili(plik_profili),
-        kopie=SerwisKopii(baza),
+        kopie=SerwisKopii(
+            baza, [repo_kont, repo_kategorii, repo_importow, repo_transakcji]
+        ),
     )
 
 
