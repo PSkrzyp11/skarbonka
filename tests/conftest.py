@@ -9,6 +9,11 @@ from skarbonka.models.enums import TypKonta
 from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
+from skarbonka.services.kategorie import SerwisKategorii
+from skarbonka.services.konta import SerwisKont
+from skarbonka.services.transakcje import SerwisTransakcji
+from skarbonka.services.zestaw import Serwisy
+from skarbonka.storage.repozytoria import Repozytorium
 
 
 @pytest.fixture
@@ -41,3 +46,20 @@ def transakcje() -> list[Transakcja]:
             date(2026, 11, 12), Decimal("1000.00"), "ROR -> Portfel", 2, id=5, konto_docelowe_id=1
         ),
     ]
+
+
+@pytest.fixture
+def serwisy(konta, kategorie, transakcje) -> Serwisy:
+    """Serwisy działające na przykładowych danych."""
+    repozytoria = []
+    for rekordy in (konta, kategorie, transakcje):
+        repozytorium = Repozytorium()
+        for rekord in rekordy:
+            repozytorium.dodaj(rekord)
+        repozytoria.append(repozytorium)
+    repo_kont, repo_kategorii, repo_transakcji = repozytoria
+    return Serwisy(
+        transakcje=SerwisTransakcji(repo_transakcji),
+        konta=SerwisKont(repo_kont, repo_transakcji),
+        kategorie=SerwisKategorii(repo_kategorii, repo_transakcji),
+    )

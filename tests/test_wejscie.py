@@ -69,5 +69,5 @@ def test_dodanie_wydatku_przez_menu(odpowiedzi):
     aplikacja = Aplikacja()
     odpowiedzi("1", "1", "20", "", "Kawa", "1", "0", "0")
     aplikacja.uruchom()
-    assert len(aplikacja.transakcje) == 1
-    assert aplikacja.transakcje[0].kwota == Decimal("20")
+    transakcje = aplikacja.transakcje.wszystkie()
+    assert [t.kwota for t in transakcje] == [Decimal("20")]

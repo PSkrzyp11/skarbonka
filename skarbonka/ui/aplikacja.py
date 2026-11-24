@@ -1,17 +1,14 @@
-"""Główna klasa interfejsu: stan aplikacji i drzewo menu."""
+"""Główna klasa interfejsu: drzewo menu."""
 
 from dataclasses import replace
 from decimal import Decimal
 
-from skarbonka.config import MAKS_DLUGOSC_NAZWY, NAZWA_APLIKACJI, SLOWO_ANULUJ
+from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
 from skarbonka.models.enums import TypKonta
-from skarbonka.models.kategoria import Kategoria
-from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
-from skarbonka.services import analizy, rekordy
-from skarbonka.services import kategorie as serwis_kategorii
-from skarbonka.services import konta as serwis_kont
-from skarbonka.services import transakcje as serwis
+from skarbonka.services import analizy
+from skarbonka.services import transakcje as obliczenia
+from skarbonka.services.zestaw import utworz_serwisy
 from skarbonka.ui.menu import Menu, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
@@ -20,6 +17,7 @@ from skarbonka.ui.wejscie import (
     wczytaj_fraze,
     wczytaj_kwote,
     wczytaj_miesiac,
+    wczytaj_nazwe,
     wczytaj_numer,
     wczytaj_saldo,
     wczytaj_tekst,
@@ -43,13 +41,13 @@ def pokaz_kwoty(kwoty: dict[str, Decimal]) -> None:
 
 
 class Aplikacja:
-    """Przechowuje transakcje i łączy opcje menu z działaniami."""
+    """Łączy opcje menu z działaniami."""
 
     def __init__(self) -> None:
-        self.konta: list[Konto] = []
-        self.kategorie: list[Kategoria] = serwis_kategorii.domyslne_kategorie()
-        self.transakcje: list[Transakcja] = []
-        rekordy.dodaj(self.konta, Konto("Portfel", TypKonta.GOTOWKA))
+        serwisy = utworz_serwisy()
+        self.transakcje = serwisy.transakcje
+        self.konta = serwisy.konta
+        self.kategorie = serwisy.kategorie
         menu_transakcji = Menu(
             "Transakcje",
             [
@@ -112,20 +110,20 @@ class Aplikacja:
 
     def dodaj(self, rodzaj: type[Transakcja]) -> None:
         """Wczytuje dane i dodaje transakcję podanego rodzaju."""
-        konto = wybierz("Konto", self.konta)
+        konto = wybierz("Konto", self.konta.wszystkie())
         kwota = wczytaj_kwote()
         data = wczytaj_date()
         opis = wczytaj_tekst("Opis")
-        kategoria = wybierz("Kategoria", serwis_kategorii.pasujace(self.kategorie, rodzaj))
+        kategoria = wybierz("Kategoria", self.kategorie.pasujace(rodzaj))
         self._zapisz(rodzaj(data, kwota, opis, konto.id, kategoria.id))
 
     def dodaj_przelew(self) -> None:
         """Wczytuje dane i dodaje przelew między dwoma kontami."""
-        if len(self.konta) < 2:
+        if len(self.konta.wszystkie()) < 2:
             print("Przelew wymaga co najmniej dwóch kont.")
             return
-        zrodlo = wybierz("Z konta", self.konta)
-        cel = wybierz("Na konto", [k for k in self.konta if k is not zrodlo])
+        zrodlo = wybierz("Z konta", self.konta.wszystkie())
+        cel = wybierz("Na konto", [k for k in self.konta.wszystkie() if k.id != zrodlo.id])
         kwota = wczytaj_kwote()
         data = wczytaj_date()
         opis = f"{zrodlo.nazwa} -> {cel.nazwa}"
@@ -133,35 +131,34 @@ class Aplikacja:
 
     def _zapisz(self, transakcja: Transakcja) -> None:
         """Dopisuje transakcję i potwierdza to na ekranie."""
-        rekordy.dodaj(self.transakcje, transakcja)
+        self.transakcje.dodaj(transakcja)
         print(f"  Dodano: {transakcja}")
 
     def pokaz_liste(self) -> None:
         """Wypisuje wszystkie transakcje od najnowszej."""
-        self._wypisz(serwis.posortuj(self.transakcje))
+        self._wypisz(obliczenia.posortuj(self.transakcje.wszystkie()))
 
     def szukaj(self) -> None:
         """Wypisuje transakcje spełniające podane warunki wraz z sumami."""
         od = wczytaj_date_opcjonalna("Od dnia")
         do = wczytaj_date_opcjonalna("Do dnia")
-        konto = wybierz_lub_wszystkie("Konto", self.konta)
-        kategoria = wybierz_lub_wszystkie("Kategoria", self.kategorie)
+        konto = wybierz_lub_wszystkie("Konto", self.konta.wszystkie())
+        kategoria = wybierz_lub_wszystkie("Kategoria", self.kategorie.wszystkie())
         fraza = wczytaj_fraze("Fragment opisu")
-        sposob = wybierz("Kolejność", list(serwis.SORTOWANIA), "od najnowszych")
-        wybrane = serwis.filtruj(
-            self.transakcje,
+        sposob = wybierz("Kolejność", list(obliczenia.SORTOWANIA), "od najnowszych")
+        wybrane = self.transakcje.filtruj(
             od,
             do,
             konto_id=konto.id if konto else None,
             kategoria_id=kategoria.id if kategoria else None,
             fraza=fraza,
         )
-        self._wypisz(serwis.posortuj(wybrane, sposob))
+        self._wypisz(obliczenia.posortuj(wybrane, sposob))
         if wybrane:
             pokaz_kwoty(
                 {
-                    "Przychody": serwis.suma_przychodow(wybrane),
-                    "Wydatki": serwis.suma_wydatkow(wybrane),
+                    "Przychody": obliczenia.suma_przychodow(wybrane),
+                    "Wydatki": obliczenia.suma_wydatkow(wybrane),
                 }
             )
 
@@ -170,8 +167,8 @@ class Aplikacja:
         if not transakcje:
             print("Brak transakcji.")
             return
-        nazwy_kont = {k.id: k.nazwa for k in self.konta}
-        nazwy_kategorii = {k.id: k.nazwa for k in self.kategorie}
+        nazwy_kont = self.konta.nazwy()
+        nazwy_kategorii = self.kategorie.nazwy()
         for transakcja in transakcje:
             konto = nazwy_kont[transakcja.konto_id]
             kategoria = nazwy_kategorii.get(transakcja.kategoria_id, "-")
@@ -181,33 +178,33 @@ class Aplikacja:
     def edytuj(self) -> None:
         """Zmienia wybraną transakcję. Enter zostawia dotychczasową wartość."""
         self.pokaz_liste()
-        if not self.transakcje:
+        if not self.transakcje.wszystkie():
             return
-        stara = rekordy.znajdz(self.transakcje, wczytaj_numer("Numer transakcji"))
+        stara = self.transakcje.pobierz(wczytaj_numer("Numer transakcji"))
         zmiany = {
             "kwota": wczytaj_kwote(domyslna=stara.kwota),
             "data": wczytaj_date(domyslna=stara.data),
             "opis": wczytaj_tekst("Opis", domyslna=stara.opis),
         }
-        pasujace = serwis_kategorii.pasujace(self.kategorie, type(stara))
+        pasujace = self.kategorie.pasujace(type(stara))
         if pasujace:
-            obecna = rekordy.znajdz(self.kategorie, stara.kategoria_id)
+            obecna = self.kategorie.pobierz(stara.kategoria_id)
             zmiany["kategoria_id"] = wybierz("Kategoria", pasujace, obecna).id
-            obecne = rekordy.znajdz(self.konta, stara.konto_id)
-            zmiany["konto_id"] = wybierz("Konto", self.konta, obecne).id
+            obecne = self.konta.pobierz(stara.konto_id)
+            zmiany["konto_id"] = wybierz("Konto", self.konta.wszystkie(), obecne).id
         nowa = replace(stara, **zmiany)
-        rekordy.zmien(self.transakcje, nowa)
+        self.transakcje.zmien(nowa)
         print(f"  Zmieniono: {nowa}")
 
     def usun(self) -> None:
         """Usuwa wybraną transakcję po potwierdzeniu."""
         self.pokaz_liste()
-        if not self.transakcje:
+        if not self.transakcje.wszystkie():
             return
-        transakcja = rekordy.znajdz(self.transakcje, wczytaj_numer("Numer transakcji"))
+        transakcja = self.transakcje.pobierz(wczytaj_numer("Numer transakcji"))
         print(transakcja)
         if potwierdz("Na pewno usunąć?"):
-            rekordy.usun(self.transakcje, transakcja.id)
+            self.transakcje.usun(transakcja)
             print("  Usunięto.")
         else:
             print("  Nic nie usunięto.")
@@ -215,9 +212,9 @@ class Aplikacja:
     def pokaz_sumy(self) -> None:
         """Wypisuje sumy przychodów i wydatków oraz salda kont."""
         sumy = {
-            "Przychody": serwis.suma_przychodow(self.transakcje),
-            "Wydatki": serwis.suma_wydatkow(self.transakcje),
-            "Bilans": serwis.bilans(self.transakcje),
+            "Przychody": obliczenia.suma_przychodow(self.transakcje.wszystkie()),
+            "Wydatki": obliczenia.suma_wydatkow(self.transakcje.wszystkie()),
+            "Bilans": obliczenia.bilans(self.transakcje.wszystkie()),
         }
         pokaz_kwoty(sumy)
         print()
@@ -225,56 +222,53 @@ class Aplikacja:
 
     def pokaz_konta(self) -> None:
         """Wypisuje konta z saldami i saldo łączne."""
-        for konto in self.konta:
-            kwota = formatuj_kwote(serwis_kont.saldo(self.konta, self.transakcje, konto.id))
+        for konto in self.konta.wszystkie():
+            kwota = formatuj_kwote(self.konta.saldo(konto.id))
             print(f"{str(konto):<40} {kwota:>16}")
-        razem = formatuj_kwote(serwis_kont.saldo(self.konta, self.transakcje))
+        razem = formatuj_kwote(self.konta.saldo())
         print(f"{'Razem':<40} {razem:>16}")
 
     def dodaj_konto(self) -> None:
         """Wczytuje dane i dodaje konto."""
-        nazwa = wczytaj_tekst("Nazwa konta", MAKS_DLUGOSC_NAZWY)
-        rekordy.sprawdz_nazwe(self.konta, nazwa)
+        nazwa = wczytaj_nazwe("Nazwa konta", self.konta.sprawdz_nazwe)
         typ = wybierz("Typ konta", list(TypKonta))
-        konto = Konto(nazwa, typ, wczytaj_saldo())
-        rekordy.dodaj(self.konta, konto)
+        konto = self.konta.dodaj(nazwa, typ, wczytaj_saldo())
         print(f"  Dodano: {konto}")
 
     def usun_konto(self) -> None:
         """Usuwa wybrane konto po potwierdzeniu."""
-        konto = wybierz("Konto do usunięcia", self.konta)
+        konto = wybierz("Konto do usunięcia", self.konta.wszystkie())
         if potwierdz(f"Na pewno usunąć „{konto.nazwa}”?"):
-            serwis_kont.usun_konto(self.konta, konto, self.transakcje)
+            self.konta.usun(konto)
             print("  Usunięto.")
 
     def pokaz_kategorie(self) -> None:
         """Wypisuje kategorie w podziale na wydatki i przychody."""
         for tytul, rodzaj in (("Wydatki", Wydatek), ("Przychody", Przychod)):
-            nazwy = [k.nazwa for k in serwis_kategorii.pasujace(self.kategorie, rodzaj)]
+            nazwy = [k.nazwa for k in self.kategorie.pasujace(rodzaj)]
             print(f"{tytul}: {', '.join(nazwy) or 'brak'}")
 
     def dodaj_kategorie(self) -> None:
         """Wczytuje dane i dodaje kategorię."""
-        nazwa = wczytaj_tekst("Nazwa kategorii", MAKS_DLUGOSC_NAZWY)
-        rekordy.sprawdz_nazwe(self.kategorie, nazwa)
+        nazwa = wczytaj_nazwe("Nazwa kategorii", self.kategorie.sprawdz_nazwe)
         czy_wydatek = potwierdz("Czy to kategoria wydatków?")
-        rekordy.dodaj(self.kategorie, Kategoria(nazwa, czy_wydatek))
+        self.kategorie.dodaj(nazwa, czy_wydatek)
         print(f"  Dodano: {nazwa}")
 
     def usun_kategorie(self) -> None:
         """Usuwa wybraną kategorię po potwierdzeniu."""
-        kategoria = wybierz("Kategoria do usunięcia", self.kategorie)
+        kategoria = wybierz("Kategoria do usunięcia", self.kategorie.wszystkie())
         if potwierdz(f"Na pewno usunąć „{kategoria.nazwa}”?"):
-            serwis_kategorii.usun_kategorie(self.kategorie, kategoria, self.transakcje)
+            self.kategorie.usun(kategoria)
             print("  Usunięto.")
 
     def pokaz_miesiac(self) -> None:
         """Wypisuje podsumowanie wybranego miesiąca."""
         miesiac = wczytaj_miesiac()
-        wybrane = analizy.z_miesiaca(self.transakcje, miesiac)
+        wybrane = analizy.z_miesiaca(self.transakcje.wszystkie(), miesiac)
         print()
         print(f"{formatuj_miesiac(miesiac).capitalize()}, transakcje: {len(wybrane)}")
-        podsumowanie = analizy.podsumowanie_miesiaca(self.transakcje, miesiac)
+        podsumowanie = analizy.podsumowanie_miesiaca(self.transakcje.wszystkie(), miesiac)
         pokaz_kwoty(podsumowanie)
         stopa = analizy.stopa_oszczednosci(podsumowanie["Przychody"], podsumowanie["Bilans"])
         if stopa is not None:
@@ -282,8 +276,8 @@ class Aplikacja:
 
     def pokaz_kategorie_wydatkow(self) -> None:
         """Wypisuje kategorie miesiąca z kwotą, procentem i paskiem."""
-        wybrane = analizy.z_miesiaca(self.transakcje, wczytaj_miesiac())
-        kwoty = analizy.wydatki_wg_kategorii(wybrane, self.kategorie)
+        wybrane = analizy.z_miesiaca(self.transakcje.wszystkie(), wczytaj_miesiac())
+        kwoty = analizy.wydatki_wg_kategorii(wybrane, self.kategorie.wszystkie())
         if not kwoty:
             print("Brak wydatków w tym miesiącu.")
             return
@@ -297,13 +291,13 @@ class Aplikacja:
         """Wypisuje przychody, wydatki i bilans ostatnich miesięcy."""
         kolumny = ("Przychody", "Wydatki", "Bilans")
         print(f"{'Miesiąc':<18}" + "".join(f"{nazwa:>18}" for nazwa in kolumny))
-        for miesiac, sumy in analizy.trend(self.transakcje):
+        for miesiac, sumy in analizy.trend(self.transakcje.wszystkie()):
             kwoty = "".join(f"{formatuj_kwote(sumy[nazwa]):>18}" for nazwa in kolumny)
             print(f"{formatuj_miesiac(miesiac):<18}{kwoty}")
 
     def pokaz_najwieksze(self) -> None:
         """Wypisuje pięć największych wydatków."""
-        wydatki = analizy.najwieksze_wydatki(self.transakcje)
+        wydatki = analizy.najwieksze_wydatki(self.transakcje.wszystkie())
         if not wydatki:
             print("Brak wydatków.")
         for miejsce, wydatek in enumerate(wydatki, start=1):

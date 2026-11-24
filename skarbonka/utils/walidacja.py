@@ -114,6 +114,12 @@ def sprawdz_tekst(
     return czysty
 
 
+def sprawdz_unikalnosc(nazwa: str, zajete: set[str]) -> None:
+    """Pilnuje, aby nazwa się nie powtarzała (wielkość liter nie ma znaczenia)."""
+    if nazwa.casefold() in {zajeta.casefold() for zajeta in zajete}:
+        raise BladWalidacji(f"Nazwa „{nazwa}” jest już zajęta.")
+
+
 def parsuj_numer(tekst: str) -> int:
     """Zamienia tekst na dodatnią liczbę całkowitą."""
     czysty = tekst.strip()

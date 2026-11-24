@@ -8,7 +8,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from skarbonka.config import MAKS_DLUGOSC_OPISU, SLOWO_ANULUJ
+from skarbonka.config import MAKS_DLUGOSC_NAZWY, MAKS_DLUGOSC_OPISU, SLOWO_ANULUJ
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.utils.walidacja import (
     parsuj_date,
@@ -77,6 +77,17 @@ def wczytaj_date_opcjonalna(komunikat: str) -> date | None:
         _z_podpowiedzia(komunikat, "bez limitu"),
         lambda tekst: parsuj_date(tekst) if tekst.strip() else None,
     )
+
+
+def wczytaj_nazwe(komunikat: str, sprawdz: Callable[[str], None]) -> str:
+    """Wczytuje krótką nazwę i sprawdza ją dodatkową funkcją."""
+
+    def parser(tekst: str) -> str:
+        nazwa = sprawdz_tekst(tekst, komunikat, MAKS_DLUGOSC_NAZWY)
+        sprawdz(nazwa)
+        return nazwa
+
+    return wczytaj(komunikat, parser)
 
 
 def wczytaj_fraze(komunikat: str) -> str:
