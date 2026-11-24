@@ -102,9 +102,9 @@ def rysuj_saldo(
     osie.annotate(
         formatuj_kwote(salda[-1]),
         (daty[-1], wartosci[-1]),
-        xytext=(0, 12),
+        xytext=(10, 0),
         textcoords="offset points",
-        ha="right",
+        va="center",
         color=paleta.tekst,
     )
     osie.axhline(0, color=paleta.tekst_drugi, linewidth=1)

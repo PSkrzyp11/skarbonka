@@ -1,6 +1,7 @@
 """Ekran profili CSV: układy plików z banków."""
 
 from skarbonka.models.importy import ProfilCSV
+from skarbonka.services.profile import KODOWANIA, MAKS_POMINIETYCH_LINII, SEPARATORY
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import (
@@ -10,10 +11,6 @@ from skarbonka.ui.wejscie import (
     wczytaj_sciezke,
     wybierz,
 )
-
-SEPARATORY = {"średnik (;)": ";", "przecinek (,)": ",", "tabulator": "\t"}
-KODOWANIA = {"UTF-8": "utf-8-sig", "Windows-1250": "cp1250"}
-MAKS_POMINIETYCH_LINII = 100
 
 
 class EkranProfili(Ekran):

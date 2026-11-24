@@ -9,6 +9,10 @@ from skarbonka.storage.pliki_json import wczytaj_json, zapisz_json
 from skarbonka.utils.walidacja import sprawdz_unikalnosc
 from skarbonka.wyjatki import UszkodzonyPlik
 
+SEPARATORY = {"średnik (;)": ";", "przecinek (,)": ",", "tabulator": "\t"}
+KODOWANIA = {"UTF-8": "utf-8-sig", "Windows-1250": "cp1250"}
+MAKS_POMINIETYCH_LINII = 100
+
 PROFIL_SKARBONKI = ProfilCSV(
     "Skarbonka", kolumna_kategoria="kategoria", kolumna_rodzaj="rodzaj"
 )
