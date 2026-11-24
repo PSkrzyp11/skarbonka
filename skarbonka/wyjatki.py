@@ -49,5 +49,13 @@ class ZaMaloDanych(BladSkarbonki):
     """Historia jest zbyt krótka, żeby coś policzyć."""
 
 
+class BladKursu(BladSkarbonki):
+    """Nie udało się ustalić kursu waluty."""
+
+
+class BrakKursu(BladKursu):
+    """Z podanego dnia nie ma kursu, np. w weekend."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""

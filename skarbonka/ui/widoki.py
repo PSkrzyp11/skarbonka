@@ -122,7 +122,7 @@ def pokaz_transakcje(
             str(t.id or "-"),
             formatuj_date(t.data),
             Text(t.ZNAK + formatuj_kwote(t.kwota), style=KOLORY_RODZAJOW[t.RODZAJ]),
-            Text(t.opis),
+            Text(t.opis_z_waluta),
             Text(nazwy_kont[t.konto_id]),
             Text(nazwy_kategorii.get(t.kategoria_id, "przelew")),
         )

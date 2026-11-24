@@ -9,9 +9,14 @@ NAZWY_MIESIECY = (
 )
 
 
-def formatuj_kwote(kwota: Decimal) -> str:
+def formatuj_kwote(kwota: Decimal, jednostka: str = "zł") -> str:
     """Zwraca kwotę w postaci „1 234,50 zł”."""
-    return f"{kwota:,.2f}".replace(",", " ").replace(".", ",") + " zł"
+    return f"{kwota:,.2f}".replace(",", " ").replace(".", ",") + f" {jednostka}"
+
+
+def formatuj_kurs(kurs: Decimal) -> str:
+    """Zwraca kurs w postaci „4,2512 zł”."""
+    return f"{kurs:.4f} zł".replace(".", ",")
 
 
 def formatuj_date(dzien: date) -> str:

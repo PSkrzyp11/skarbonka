@@ -31,6 +31,8 @@ class Transakcja(ABC):
     id: int | None = None
     import_id: int | None = None
     cykliczna_id: int | None = None
+    waluta: str = "PLN"
+    kwota_oryg: Decimal | None = None
 
     def __post_init__(self) -> None:
         """Pilnuje poprawności kwoty niezależnie od tego, kto tworzy obiekt."""
@@ -41,6 +43,14 @@ class Transakcja(ABC):
     @abstractmethod
     def wplyw(self) -> Decimal:
         """Zmiana łącznego stanu pieniędzy na wszystkich kontach."""
+
+    @property
+    def opis_z_waluta(self) -> str:
+        """Opis uzupełniony o kwotę w obcej walucie."""
+        if self.kwota_oryg is None:
+            return self.opis
+        kwota = formatuj_kwote(self.kwota_oryg, jednostka=self.waluta)
+        return f"{self.opis} ({kwota})"
 
     @property
     def odcisk(self) -> tuple[date, Decimal, str, int]:

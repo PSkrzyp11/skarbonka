@@ -19,6 +19,7 @@ from skarbonka.ui import widoki
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.utils.walidacja import (
     parsuj_date,
+    parsuj_kurs,
     parsuj_kwote,
     parsuj_liczbe,
     parsuj_miesiac,
@@ -57,6 +58,11 @@ def wczytaj_kwote(komunikat: str = "Kwota", domyslna: Decimal | None = None) -> 
     """Wczytuje dodatnią kwotę."""
     podpowiedz = formatuj_kwote(domyslna) if domyslna is not None else ""
     return wczytaj(_z_podpowiedzia(komunikat, podpowiedz), parsuj_kwote, domyslna)
+
+
+def wczytaj_kurs(komunikat: str = "Kurs") -> Decimal:
+    """Wczytuje kurs waluty."""
+    return wczytaj(komunikat, parsuj_kurs)
 
 
 def wczytaj_saldo(komunikat: str = "Saldo początkowe") -> Decimal:

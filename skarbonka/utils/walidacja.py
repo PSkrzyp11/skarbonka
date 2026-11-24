@@ -16,6 +16,8 @@ MAKS_KWOTA = Decimal("999999999.99")
 
 WZORZEC_KWOTY = re.compile(r"[+-]?([0-9]+|[0-9]{1,3}( [0-9]{3})+)([.,][0-9]{1,2})?")
 
+WZORZEC_KURSU = re.compile(r"[0-9]{1,6}([.,][0-9]{1,6})?")
+
 FORMATY_MIESIACA = ("%m.%Y", "%Y-%m", "%m/%Y")
 FORMATY_DATY = ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y")
 MIN_DATA = date(2000, 1, 1)
@@ -46,6 +48,14 @@ def parsuj_kwote(tekst: str, minimum: Decimal | None = MIN_KWOTA) -> Decimal:
     if abs(kwota) > MAKS_KWOTA:
         raise NieprawidlowaKwota("Kwota jest zbyt duża.")
     return kwota
+
+
+def parsuj_kurs(tekst: str) -> Decimal:
+    """Zamienia tekst na dodatni kurs waluty."""
+    czysty = tekst.strip()
+    if not WZORZEC_KURSU.fullmatch(czysty) or Decimal(czysty.replace(",", ".")) == 0:
+        raise NieprawidlowaKwota("Wpisz dodatni kurs, np. 4,2512.")
+    return Decimal(czysty.replace(",", "."))
 
 
 def parsuj_date(

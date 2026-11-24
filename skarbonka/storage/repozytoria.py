@@ -12,7 +12,7 @@ from skarbonka.models.importy import Import
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.storage.baza import Baza
-from skarbonka.wyjatki import BladBazy, BladWalidacji, NieZnalezionoRekordu, RekordWUzyciu
+from skarbonka.wyjatki import BladBazy, BladSkarbonki, NieZnalezionoRekordu, RekordWUzyciu
 
 T = TypeVar("T")
 
@@ -92,7 +92,7 @@ class Repozytorium(ABC, Generic[T]):
         """Tworzy obiekt, zgłaszając BladBazy, gdy wiersz ma błędne wartości."""
         try:
             return self._z_wiersza(wiersz)
-        except (ValueError, TypeError, KeyError, BladWalidacji) as blad:
+        except (ValueError, TypeError, KeyError, ArithmeticError, BladSkarbonki) as blad:
             numer = wiersz["id"]
             raise BladBazy(f"Błędne dane w tabeli {self.TABELA}, nr {numer}: {blad}") from blad
 
@@ -152,10 +152,13 @@ class RepozytoriumTransakcji(Repozytorium[Transakcja]):
             "kategoria_id": rekord.kategoria_id,
             "import_id": rekord.import_id,
             "cykliczna_id": rekord.cykliczna_id,
+            "waluta": rekord.waluta,
+            "grosze_oryg": None if rekord.kwota_oryg is None else na_grosze(rekord.kwota_oryg),
         }
 
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Transakcja:
         klasa = KLASY_TRANSAKCJI[wiersz["rodzaj"]]
+        grosze_oryg = wiersz["grosze_oryg"]
         pola = {
             "data": date.fromisoformat(wiersz["data"]),
             "kwota": z_groszy(wiersz["grosze"]),
@@ -165,6 +168,8 @@ class RepozytoriumTransakcji(Repozytorium[Transakcja]):
             "id": wiersz["id"],
             "import_id": wiersz["import_id"],
             "cykliczna_id": wiersz["cykliczna_id"],
+            "waluta": wiersz["waluta"],
+            "kwota_oryg": None if grosze_oryg is None else z_groszy(grosze_oryg),
         }
         if klasa is Przelew:
             pola["konto_docelowe_id"] = wiersz["konto_docelowe_id"]

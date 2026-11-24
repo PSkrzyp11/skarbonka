@@ -13,10 +13,11 @@ from skarbonka.services.kategoryzacja import Kategoryzator
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.kopie import SerwisKopii
 from skarbonka.services.planowanie import SerwisBudzetow, SerwisCeli
-from skarbonka.services.prognoza import SerwisPrognozy
 from skarbonka.services.profile import SerwisProfili
+from skarbonka.services.prognoza import SerwisPrognozy
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.services.ustawienia import SerwisUstawien
+from skarbonka.services.waluty import SerwisWalut
 from skarbonka.storage.baza import Baza
 from skarbonka.storage.repozytoria import (
     RepozytoriumImportow,
@@ -28,6 +29,7 @@ from skarbonka.storage.repozytoria_planu import (
     RepozytoriumBudzetow,
     RepozytoriumCeli,
     RepozytoriumCyklicznych,
+    RepozytoriumKursow,
     RepozytoriumRegul,
     RepozytoriumWplat,
 )
@@ -46,6 +48,7 @@ class Serwisy:
     cele: SerwisCeli
     cykliczne: SerwisCyklicznych
     prognoza: SerwisPrognozy
+    waluty: SerwisWalut
     eksporter: Eksporter
     importer: Importer
     kopie: SerwisKopii
@@ -69,6 +72,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     repo_wplat = RepozytoriumWplat(baza)
     repo_cyklicznych = RepozytoriumCyklicznych(baza)
     repo_regul = RepozytoriumRegul(baza)
+    repo_kursow = RepozytoriumKursow(baza)
     repozytoria = [
         repo_transakcji,
         repo_kont,
@@ -79,6 +83,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         repo_wplat,
         repo_cyklicznych,
         repo_regul,
+        repo_kursow,
     ]
 
     ustawienia = SerwisUstawien(katalog / "ustawienia.json")
@@ -97,6 +102,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         cele=SerwisCeli(repo_celi, repo_wplat),
         cykliczne=cykliczne,
         prognoza=SerwisPrognozy(transakcje, konta, cykliczne),
+        waluty=SerwisWalut(repo_kursow),
         eksporter=Eksporter(konta, kategorie),
         importer=Importer(baza, repo_transakcji, repo_importow, kategorie, kategoryzator),
         kopie=SerwisKopii(baza, repozytoria),

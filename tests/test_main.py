@@ -29,7 +29,7 @@ def test_dane_przezywaja_ponowne_uruchomienie(tmp_path, monkeypatch, odpowiedzi,
     argumenty = ["--baza", str(tmp_path / "test.db")]
     odpowiedzi("1", "1", "20", "", "Kawa", "1", "0", "0")
     main(argumenty)
-    odpowiedzi("1", "4", "0", "0")
+    odpowiedzi("1", "5", "0", "0")
     main(argumenty)
     assert "Pokazano 1 z 1" in capsys.readouterr().out
 

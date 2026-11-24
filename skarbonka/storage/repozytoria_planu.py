@@ -1,12 +1,14 @@
-"""Repozytoria tabel związanych z planowaniem i regułami."""
+"""Repozytoria tabel związanych z planowaniem, regułami i kursami."""
 
 import sqlite3
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.kategoria import Regula
+from skarbonka.models.kurs import Kurs
 from skarbonka.models.plan import Budzet, Cel, WplataCelu
 from skarbonka.storage.repozytoria import Repozytorium, na_grosze, z_groszy
 
@@ -123,4 +125,25 @@ class RepozytoriumRegul(Repozytorium[Regula]):
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Regula:
         return Regula(
             wiersz["fraza"], wiersz["kategoria_id"], int(wiersz["priorytet"]), wiersz["id"]
+        )
+
+
+class RepozytoriumKursow(Repozytorium[Kurs]):
+    """Tabela pobranych kursów walut."""
+
+    TABELA = "kursy"
+
+    def _na_wiersz(self, rekord: Kurs) -> dict[str, Any]:
+        return {
+            "waluta": rekord.waluta,
+            "data": rekord.data.isoformat(),
+            "wartosc": str(rekord.wartosc),
+        }
+
+    def _z_wiersza(self, wiersz: sqlite3.Row) -> Kurs:
+        return Kurs(
+            wiersz["waluta"],
+            date.fromisoformat(wiersz["data"]),
+            Decimal(wiersz["wartosc"]),
+            wiersz["id"],
         )

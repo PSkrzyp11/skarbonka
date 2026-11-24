@@ -1,8 +1,11 @@
 """Ekran transakcji: dodawanie, lista, szukanie, edycja i usuwanie."""
 
 from dataclasses import replace
+from datetime import date
 
 from skarbonka.config import ROZMIAR_STRONY
+from skarbonka.models.kategoria import Kategoria
+from skarbonka.models.kurs import Kurs
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.services.transakcje import (
     SORTOWANIA,
@@ -11,6 +14,7 @@ from skarbonka.services.transakcje import (
     suma_przychodow,
     suma_wydatkow,
 )
+from skarbonka.services.waluty import WALUTY
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import (
@@ -18,14 +22,15 @@ from skarbonka.ui.wejscie import (
     wczytaj_date,
     wczytaj_date_opcjonalna,
     wczytaj_fraze,
+    wczytaj_kurs,
     wczytaj_kwote,
     wczytaj_numer,
     wczytaj_tekst,
     wybierz,
     wybierz_lub_wszystkie,
 )
-from skarbonka.utils.formatowanie import formatuj_procent
-from skarbonka.wyjatki import NieZnalezionoRekordu
+from skarbonka.utils.formatowanie import formatuj_date, formatuj_kurs, formatuj_procent
+from skarbonka.wyjatki import BladKursu, NieZnalezionoRekordu
 
 
 class EkranTransakcji(Ekran):
@@ -38,6 +43,7 @@ class EkranTransakcji(Ekran):
             OpcjaMenu("Dodaj wydatek", lambda: self.dodaj(Wydatek)),
             OpcjaMenu("Dodaj przychód", lambda: self.dodaj(Przychod)),
             OpcjaMenu("Przelew między kontami", self.dodaj_przelew),
+            OpcjaMenu("Wydatek w obcej walucie", self.dodaj_w_walucie),
             OpcjaMenu("Lista transakcji", self.pokaz_liste),
             OpcjaMenu("Szukaj i filtruj", self.szukaj),
             OpcjaMenu("Edytuj transakcję", self.edytuj),
@@ -50,8 +56,7 @@ class EkranTransakcji(Ekran):
         kwota = wczytaj_kwote()
         data = wczytaj_date()
         opis = wczytaj_tekst("Opis")
-        podpowiedz = self.serwisy.kategoryzator.dopasuj(opis, rodzaj)
-        kategoria = wybierz("Kategoria", self.serwisy.kategorie.pasujace(rodzaj), podpowiedz)
+        kategoria = self._wybierz_kategorie(opis, rodzaj)
         self._zapisz(rodzaj(data, kwota, opis, konto.id, kategoria.id))
 
     def dodaj_przelew(self) -> None:
@@ -66,6 +71,42 @@ class EkranTransakcji(Ekran):
         data = wczytaj_date()
         opis = f"{zrodlo.nazwa} -> {cel.nazwa}"
         self._zapisz(Przelew(data, kwota, opis, zrodlo.id, konto_docelowe_id=cel.id))
+
+    def dodaj_w_walucie(self) -> None:
+        """Dodaje wydatek przeliczony na złote po kursie z dnia zakupu."""
+        konto = wybierz("Konto", self.serwisy.konta.wszystkie())
+        waluta = wybierz("Waluta", list(WALUTY))
+        kwota = wczytaj_kwote(f"Kwota w {waluta}")
+        data = wczytaj_date()
+        kurs = self._ustal_kurs(waluta, data)
+        opis = wczytaj_tekst("Opis")
+        kategoria = self._wybierz_kategorie(opis, Wydatek)
+        self._zapisz(
+            Wydatek(
+                data,
+                kurs.przelicz(kwota),
+                opis,
+                konto.id,
+                kategoria.id,
+                waluta=waluta,
+                kwota_oryg=kwota,
+            )
+        )
+
+    def _ustal_kurs(self, waluta: str, data: date) -> Kurs:
+        """Pobiera kurs, a gdy się nie uda, prosi o wpisanie go ręcznie."""
+        try:
+            kurs = self.serwisy.waluty.kurs(waluta, data)
+        except BladKursu as blad:
+            widoki.blad(str(blad))
+            return Kurs(waluta, data, wczytaj_kurs(f"Kurs {waluta}"))
+        print(f"Kurs NBP z dnia {formatuj_date(kurs.data)}: {formatuj_kurs(kurs.wartosc)}")
+        return kurs
+
+    def _wybierz_kategorie(self, opis: str, rodzaj: type[Transakcja]) -> Kategoria:
+        """Pyta o kategorię, podpowiadając tę z reguł."""
+        podpowiedz = self.serwisy.kategoryzator.dopasuj(opis, rodzaj)
+        return wybierz("Kategoria", self.serwisy.kategorie.pasujace(rodzaj), podpowiedz)
 
     def pokaz_liste(self) -> None:
         """Wypisuje wszystkie transakcje strona po stronie."""
@@ -106,6 +147,8 @@ class EkranTransakcji(Ekran):
             zmiany["kategoria_id"] = wybierz("Kategoria", pasujace, obecna).id
             obecne = self.serwisy.konta.pobierz(stara.konto_id)
             zmiany["konto_id"] = wybierz("Konto", self.serwisy.konta.wszystkie(), obecne).id
+        if zmiany["kwota"] != stara.kwota:
+            zmiany |= {"waluta": "PLN", "kwota_oryg": None}
         nowa = replace(stara, **zmiany)
         self.serwisy.transakcje.zmien(nowa)
         widoki.sukces(f"Zmieniono: {nowa}")

@@ -138,5 +138,5 @@ def test_stara_baza_dostaje_nowe_kolumny(tmp_path):
     for _ in range(2):
         baza = Baza(plik)
         wiersz = baza.zapytaj("SELECT * FROM transakcje")[0]
-        assert (wiersz["opis"], wiersz["cykliczna_id"]) == ("Stara", None)
+        assert (wiersz["opis"], wiersz["cykliczna_id"], wiersz["waluta"]) == ("Stara", None, "PLN")
         baza.zamknij()
