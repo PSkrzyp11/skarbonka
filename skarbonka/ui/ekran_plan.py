@@ -1,9 +1,18 @@
-"""Ekrany planowania: budżety."""
+"""Ekrany planowania: budżety i cele."""
+
+from datetime import date, timedelta
 
 from skarbonka.models.transakcja import Wydatek
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
-from skarbonka.ui.wejscie import potwierdz, wczytaj_kwote, wczytaj_miesiac, wybierz
+from skarbonka.ui.wejscie import (
+    potwierdz,
+    wczytaj_kwote,
+    wczytaj_miesiac,
+    wczytaj_nazwe,
+    wczytaj_termin,
+    wybierz,
+)
 
 
 class EkranBudzetow(Ekran):
@@ -49,6 +58,49 @@ class EkranBudzetow(Ekran):
             widoki.sukces("Usunięto.")
 
 
+class EkranCeli(Ekran):
+    """Cele oszczędnościowe."""
+
+    TYTUL = "Cele oszczędnościowe"
+
+    def opcje(self) -> list[OpcjaMenu]:
+        return [
+            OpcjaMenu("Postęp celów", self.pokaz),
+            OpcjaMenu("Dodaj cel", self.dodaj),
+            OpcjaMenu("Wpłać na cel", self.wplac),
+            OpcjaMenu("Usuń cel", self.usun),
+        ]
+
+    def pokaz(self) -> None:
+        """Wypisuje postęp wszystkich celów."""
+        cele = self.serwisy.cele.wszystkie()
+        if not cele:
+            print("Brak celów.")
+            return
+        widoki.pokaz_cele(cele, date.today())
+
+    def dodaj(self) -> None:
+        """Wczytuje dane i dodaje cel."""
+        nazwa = wczytaj_nazwe("Nazwa celu", self.serwisy.cele.sprawdz_nazwe)
+        kwota = wczytaj_kwote("Kwota docelowa")
+        termin = wczytaj_termin("Termin", date.today() + timedelta(days=1))
+        self.serwisy.cele.dodaj(nazwa, kwota, termin)
+        widoki.sukces(f"Dodano cel {nazwa}.")
+
+    def wplac(self) -> None:
+        """Dopisuje wpłatę do wybranego celu."""
+        cel = wybierz("Cel", self.serwisy.cele.wszystkie())
+        self.serwisy.cele.wplac(cel, wczytaj_kwote("Wpłata"))
+        self.pokaz()
+
+    def usun(self) -> None:
+        """Usuwa wybrany cel po potwierdzeniu."""
+        cel = wybierz("Cel do usunięcia", self.serwisy.cele.wszystkie())
+        if potwierdz(f"Na pewno usunąć „{cel.nazwa}” i jego wpłaty?"):
+            self.serwisy.cele.usun(cel)
+            widoki.sukces("Usunięto.")
+
+
 class EkranPlanu(Ekran):
     """Wejście do ekranów planowania."""
 
@@ -57,4 +109,5 @@ class EkranPlanu(Ekran):
     def opcje(self) -> list[OpcjaMenu]:
         return [
             OpcjaMenu("Budżety", EkranBudzetow(self.serwisy).uruchom),
+            OpcjaMenu("Cele oszczędnościowe", EkranCeli(self.serwisy).uruchom),
         ]

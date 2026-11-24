@@ -16,6 +16,7 @@ from rich.text import Text
 from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
 from skarbonka.models.enums import StanBudzetu
 from skarbonka.models.konto import Konto
+from skarbonka.models.plan import Cel
 from skarbonka.models.transakcja import Transakcja
 from skarbonka.services.planowanie import WykonanieBudzetu
 from skarbonka.utils.formatowanie import (
@@ -175,6 +176,29 @@ def pokaz_budzety(wykonanie: list[WykonanieBudzetu]) -> None:
             formatuj_procent(w.procent),
             _pasek(min(w.procent, 100), kolor, dlugosc=12),
             Text(str(w.stan), kolor),
+        )
+    konsola.print(tabela)
+
+
+def pokaz_cele(cele: list[Cel], dzis: date) -> None:
+    """Wypisuje postęp celów i potrzebną miesięczną ratę."""
+    tabela = _tabela(
+        ("Cel", "left"),
+        ("Odłożono", "right"),
+        ("Z kwoty", "right"),
+        ("Termin", "right"),
+        ("%", "right"),
+        ("Miesięcznie", "right"),
+    )
+    for cel in cele:
+        kolor = "green" if cel.brakuje == 0 else "red" if cel.termin < dzis else ""
+        tabela.add_row(
+            Text(cel.nazwa, kolor),
+            _kwota(cel.odlozono),
+            _kwota(cel.kwota_docelowa),
+            formatuj_date(cel.termin),
+            formatuj_procent(cel.procent),
+            "osiągnięty" if cel.brakuje == 0 else formatuj_kwote(cel.rata(dzis)),
         )
     konsola.print(tabela)
 

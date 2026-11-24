@@ -52,6 +52,7 @@ def parsuj_date(
     tekst: str,
     domyslna: date | None = None,
     najpozniej: date | None = None,
+    najwczesniej: date | None = None,
 ) -> date:
     """Zamienia tekst na datę.
 
@@ -76,6 +77,8 @@ def parsuj_date(
         )
     if najpozniej is not None and wynik > najpozniej:
         raise NieprawidlowaData(f"Data nie może być późniejsza niż {najpozniej:%d.%m.%Y}.")
+    if najwczesniej is not None and wynik < najwczesniej:
+        raise NieprawidlowaData(f"Data nie może być wcześniejsza niż {najwczesniej:%d.%m.%Y}.")
     return wynik
 
 
