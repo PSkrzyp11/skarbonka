@@ -1,83 +1,124 @@
 """Import, eksport, raporty i kopie zapasowe."""
 
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from tkinter import filedialog
 from typing import Any
 
-import customtkinter as ctk
-
-from skarbonka.gui import styl
+from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz, Pole
-from skarbonka.gui.okno_importu import OknoImportu
-from skarbonka.gui.skladniki import Karta, Kolumna, Tabela, Wiersz, etykieta, przycisk
+from skarbonka.gui.lista import Lista, Pozycja
+from skarbonka.gui.okno_importu import PanelImportu
+from skarbonka.gui.skladniki import Karta, etykieta, kafelek_ikony, przycisk, ramka
 from skarbonka.gui.widok import Widok
 from skarbonka.services.transakcje import posortuj
-from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac
+from skarbonka.utils.formatowanie import formatuj_miesiac
 from skarbonka.utils.walidacja import parsuj_miesiac
 from skarbonka.wyjatki import NieZnalezionoRekordu
 
 CSV = [("Plik CSV", "*.csv"), ("Wszystkie pliki", "*.*")]
 JSON = [("Kopia JSON", "*.json")]
 TXT = [("Plik tekstowy", "*.txt")]
-KOLUMNY_KOPII = [Kolumna("Kopia", 380, rozciagliwa=True), Kolumna("Utworzono", 160)]
-OPOZNIENIE = 150
+OPISY_KOPII = {"auto": "automatyczna", "przed": "przed przywróceniem"}
+OPOZNIENIE = 30
 
 
 class WidokDane(Widok):
     """Wymiana danych z plikami."""
 
     TYTUL = "Dane"
+    IKONA = ikony.FOLDER
 
     def buduj(self) -> None:
-        gora = ctk.CTkFrame(self.tresc, fg_color=styl.PRZEZROCZYSTY)
-        gora.pack(fill="x")
-        karty = (
+        self.podtytul.configure(text="Wyciągi z banku, pliki i kopie zapasowe")
+        siatka = ramka(self.tresc)
+        siatka.pack(fill="both", expand=True)
+        siatka.grid_columnconfigure(0, weight=5, uniform="dane")
+        siatka.grid_columnconfigure(1, weight=4, uniform="dane")
+        siatka.grid_rowconfigure(0, weight=1)
+        self._buduj_wymiane(siatka)
+        self._buduj_kopie(siatka)
+
+    def _buduj_wymiane(self, siatka: Any) -> None:
+        """Tworzy listę operacji na plikach."""
+        karta = Karta(siatka, "Pliki")
+        karta.grid(row=0, column=0, sticky="nsew")
+        wiersze = (
             (
-                "Import wyciągu bankowego",
-                "Wczytuje transakcje z pliku CSV i wykrywa duplikaty.",
-                (("Wybierz plik CSV", self.importuj), ("Cofnij ostatni import", self.cofnij)),
+                ikony.POBIERZ,
+                "Import wyciągu",
+                "Plik CSV z banku, z wykrywaniem duplikatów",
+                ("Wybierz plik", self.importuj, "glowny"),
             ),
             (
-                "Eksport i raport",
-                "Zapisuje transakcje do CSV albo podsumowanie miesiąca do TXT.",
-                (("Eksport CSV", self.eksportuj), ("Raport TXT", self.raport)),
+                ikony.COFNIJ,
+                "Cofnij ostatni import",
+                "Usuwa wszystko, co wtedy dodano",
+                ("Cofnij", self.cofnij, "zwykly"),
+            ),
+            (
+                ikony.WYSLIJ,
+                "Eksport transakcji",
+                "Plik CSV gotowy do otwarcia w Excelu",
+                ("Zapisz", self.eksportuj, "zwykly"),
+            ),
+            (
+                ikony.DOKUMENT,
+                "Raport miesiąca",
+                "Podsumowanie w pliku tekstowym",
+                ("Utwórz", self.raport, "zwykly"),
             ),
         )
-        for i, (tytul, opis, akcje) in enumerate(karty):
-            karta = Karta(gora, tytul)
-            gora.grid_columnconfigure(i, weight=1, uniform="karty")
-            karta.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 14, 0))
-            etykieta(karta, opis, kolor=styl.TEKST_DRUGI).pack(anchor="w", padx=16)
-            self._dodaj_przyciski(karta, akcje)
+        for wiersz in wiersze:
+            self._dodaj_operacje(karta, *wiersz)
 
-        kopie = Karta(self.tresc, "Kopie zapasowe")
-        kopie.pack(fill="both", expand=True, pady=(14, 0))
-        self._dodaj_przyciski(
-            kopie,
-            (
-                ("Utwórz kopię", self.utworz_kopie),
-                ("Przywróć zaznaczoną", self.przywroc_zaznaczona),
-                ("Przywróć z pliku", self.przywroc_z_pliku),
-            ),
+    def _dodaj_operacje(
+        self,
+        karta: Karta,
+        ikona: str,
+        tytul: str,
+        opis: str,
+        akcja: tuple[str, Callable[[], Any], str],
+    ) -> None:
+        """Dodaje wiersz z ikoną, opisem i przyciskiem."""
+        rzad = ramka(karta)
+        rzad.pack(fill="x", padx=20, pady=12)
+        kafelek_ikony(rzad, ikona, bok=46).pack(side="left")
+        napisy = ramka(rzad)
+        napisy.pack(side="left", padx=16)
+        etykieta(napisy, tytul, 15, "mocny").pack(anchor="w")
+        etykieta(napisy, opis, 12, kolor=styl.TEKST_DRUGI).pack(anchor="w", pady=(2, 0))
+        przycisk(rzad, akcja[0], akcja[1], akcja[2], 110).pack(side="right")
+
+    def _buduj_kopie(self, siatka: Any) -> None:
+        """Tworzy listę kopii zapasowych."""
+        karta = Karta(siatka, "Kopie zapasowe")
+        karta.grid(row=0, column=1, sticky="nsew", padx=(20, 0))
+        przycisk(karta.gora, "Utwórz kopię", self.utworz_kopie, "zwykly", 110, 34).pack(
+            side="right"
         )
-        self.tabela = Tabela(kopie, KOLUMNY_KOPII)
-        self.tabela.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-    def _dodaj_przyciski(self, karta: Karta, akcje: tuple) -> None:
-        """Dodaje rząd przycisków. Pierwszy jest główny."""
-        rzad = ctk.CTkFrame(karta, fg_color=styl.PRZEZROCZYSTY)
-        rzad.pack(fill="x", padx=16, pady=12)
-        for i, (tekst, akcja) in enumerate(akcje):
-            przycisk(rzad, tekst, akcja, glowny=i == 0).pack(side="left", padx=(0, 8))
+        dol = ramka(karta)
+        dol.pack(side="bottom", fill="x", padx=20, pady=(4, 18))
+        przycisk(dol, "Przywróć zaznaczoną", self.przywroc_zaznaczona, "zwykly").pack(side="left")
+        przycisk(dol, "Z pliku", self.przywroc_z_pliku, "cichy", 80).pack(side="left", padx=8)
+        self.tabela = Lista(
+            karta, lambda: None, pusto=(ikony.ARCHIWUM, "Nie ma jeszcze żadnej kopii.")
+        )
+        self.tabela.pack(fill="both", expand=True, padx=10, pady=(4, 8))
 
     def odswiez(self) -> None:
         self._kopie = self.serwisy.kopie.lista()
-        wiersze = []
+        pozycje = []
         for numer, plik in enumerate(self._kopie):
             czas = datetime.fromtimestamp(plik.stat().st_mtime)
-            wiersze.append(Wiersz(numer, (plik.name, f"{czas:%d.%m.%Y %H:%M}"), (plik.name, czas)))
-        self.tabela.wypelnij(wiersze)
+            rodzaje = [o for klucz, o in OPISY_KOPII.items() if f"-{klucz}-" in plik.name]
+            opis = rodzaje[0] if rodzaje else "ręczna"
+            rozmiar = f"{plik.stat().st_size / 1024:.0f} KB"
+            pozycje.append(
+                Pozycja(numer, ikony.ARCHIWUM, f"{czas:%d.%m.%Y, %H:%M}", opis, "", rozmiar)
+            )
+        self.tabela.wypelnij(pozycje)
 
     def importuj(self) -> Formularz | None:
         """Wybiera plik, pyta o profil oraz konto i pokazuje podgląd."""
@@ -89,26 +130,25 @@ class WidokDane(Widok):
             podglad = self.serwisy.importer.przygotuj(
                 Path(sciezka), dane["profil"], dane["konto"].id
             )
-            self.okno.after(OPOZNIENIE, lambda: OknoImportu(self.okno, podglad))
+            self.okno.after(OPOZNIENIE, lambda: PanelImportu(self.okno, podglad))
 
+        profile = {p.nazwa: p for p in self.serwisy.profile.wszystkie()}
         pola = [
-            Pole("profil", "Układ pliku", wybor={p.nazwa: p for p in self._profile()}),
+            Pole("profil", "Układ pliku", wybor=profile),
             Pole("konto", "Konto", wybor={k.nazwa: k for k in self.serwisy.konta.wszystkie()}),
         ]
         return Formularz(self.okno, "Import wyciągu", pola, zapisz, "Dalej")
 
-    def _profile(self) -> list:
-        return self.serwisy.profile.wszystkie()
-
     def cofnij(self) -> None:
         """Usuwa transakcje z ostatniego importu po potwierdzeniu."""
         ostatni = self.serwisy.importer.ostatni()
-        if self.okno.zapytaj(
-            f"Usunąć transakcje z importu {ostatni.plik} "
-            f"({ostatni.utworzono:%d.%m.%Y %H:%M})?"
-        ):
+        pytanie = (
+            f"Usunąć transakcje z importu {ostatni.plik} ({ostatni.utworzono:%d.%m.%Y %H:%M})?"
+        )
+        if self.okno.zapytaj(pytanie, "Usuń", grozne=True):
             liczba = self.serwisy.importer.cofnij(ostatni)
             self.okno.powiadom(f"Usunięte transakcje: {liczba}")
+            self.okno.odswiez()
 
     def eksportuj(self) -> None:
         """Zapisuje wszystkie transakcje do CSV."""
@@ -118,7 +158,7 @@ class WidokDane(Widok):
         sciezka = self._dokad("transakcje.csv", ".csv", CSV)
         if sciezka is not None:
             self.serwisy.eksporter.zapisz(transakcje, sciezka)
-            self.okno.powiadom(f"Zapisane transakcje: {len(transakcje)}, plik: {sciezka}")
+            self.okno.powiadom(f"Zapisane transakcje: {len(transakcje)}")
 
     def raport(self) -> Formularz:
         """Pyta o miesiąc i zapisuje raport."""
@@ -131,7 +171,7 @@ class WidokDane(Widok):
                 self.okno.powiadom(f"Zapisano raport za {formatuj_miesiac(miesiac)}.")
 
         pola = [Pole("miesiac", "Miesiąc", parsuj_miesiac, f"{date.today():%m.%Y}")]
-        return Formularz(self.okno, "Raport miesiąca", pola, zapisz)
+        return Formularz(self.okno, "Raport miesiąca", pola, zapisz, "Wybierz miejsce")
 
     def _dokad(self, nazwa: str, koncowka: str, typy: list) -> Path | None:
         """Pyta, gdzie zapisać plik."""
@@ -142,8 +182,8 @@ class WidokDane(Widok):
 
     def utworz_kopie(self) -> None:
         """Tworzy kopię zapasową."""
-        kopia = self.serwisy.kopie.utworz()
-        self.okno.powiadom(f"Utworzono kopię z dnia {formatuj_date(date.today())}: {kopia.name}")
+        self.serwisy.kopie.utworz()
+        self.okno.powiadom("Utworzono kopię zapasową.")
         self.odswiez()
 
     def przywroc_zaznaczona(self) -> None:
@@ -161,9 +201,9 @@ class WidokDane(Widok):
 
     def _przywroc(self, kopia: Path) -> None:
         """Pokazuje zawartość kopii i po zgodzie zastępuje dane."""
-        liczby = self.serwisy.kopie.policz(kopia)
-        opis = ", ".join(f"{nazwa}: {ile}" for nazwa, ile in liczby.items() if ile)
-        if self.okno.zapytaj(f"Kopia zawiera: {opis}. Zastąpić nią obecne dane?"):
+        transakcje = self.serwisy.kopie.policz(kopia).get("transakcje", 0)
+        pytanie = f"Kopia zawiera transakcje: {transakcje}. Zastąpić nią obecne dane?"
+        if self.okno.zapytaj(pytanie, "Przywróć"):
             self.serwisy.kopie.przywroc(kopia)
-            self.okno.powiadom(f"Przywrócono kopię {kopia.name}.")
-            self.odswiez()
+            self.okno.powiadom("Przywrócono dane z kopii.")
+            self.okno.odswiez()

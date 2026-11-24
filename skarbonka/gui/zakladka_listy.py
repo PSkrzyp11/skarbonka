@@ -2,14 +2,15 @@
 
 from abc import abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 import customtkinter as ctk
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
-from skarbonka.gui import styl
+from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz
-from skarbonka.gui.skladniki import Karta, Kolumna, Tabela, Wiersz, przycisk
+from skarbonka.gui.lista import Lista, Pozycja
+from skarbonka.gui.skladniki import Karta, etykieta, przycisk, ramka
 from skarbonka.utils.walidacja import sprawdz_tekst
 from skarbonka.wyjatki import NieZnalezionoRekordu
 
@@ -29,30 +30,41 @@ def parser_nazwy(sprawdz: Callable[[str], None]) -> Callable[[str], str]:
 
 
 class ZakladkaListy(ctk.CTkFrame):
-    """Tabela z przyciskami Dodaj i Usuń."""
+    """Lista z przyciskami Dodaj i Usuń."""
 
-    KOLUMNY: ClassVar[list[Kolumna]] = []
+    OPIS = ""
+    PUSTO = (ikony.ARCHIWUM, "Nic tu jeszcze nie ma.")
 
     def __init__(self, rodzic: Any, okno: "Okno") -> None:
         super().__init__(rodzic, fg_color=styl.PRZEZROCZYSTY)
         self.okno = okno
         self.serwisy = okno.serwisy
-        gora = ctk.CTkFrame(self, fg_color=styl.PRZEZROCZYSTY)
-        gora.pack(fill="x", pady=(6, 10))
-        przycisk(gora, "Dodaj", self.dodaj, glowny=True).pack(side="right")
-        przycisk(gora, "Usuń", self.usun).pack(side="right", padx=8)
+        self.gora = ramka(self)
+        self.gora.pack(fill="x", pady=(0, 16))
+        etykieta(self.gora, self.OPIS, kolor=styl.TEKST_DRUGI).pack(side="left")
+        przycisk(self.gora, "Dodaj", self.dodaj, "glowny", 90).pack(side="right")
         karta = Karta(self)
         karta.pack(fill="both", expand=True)
-        self.tabela = Tabela(karta, self.KOLUMNY)
-        self.tabela.pack(fill="both", expand=True, padx=10, pady=10)
+        self._akcje = ctk.CTkFrame(karta, fg_color=styl.AKCENT_TLO, corner_radius=12)
+        self._nazwa_wybranej = etykieta(self._akcje, "", 13, "mocny", styl.AKCENT_TEKST)
+        self._nazwa_wybranej.pack(side="left", padx=18)
+        przycisk(self._akcje, "Usuń", self.usun, "grozny", 80, 34).pack(
+            side="right", padx=8, pady=8
+        )
+        self.dodaj_akcje(self._akcje)
+        self.tabela = Lista(karta, self._wybrano, pusto=self.PUSTO)
+        self.tabela.pack(fill="both", expand=True, padx=10, pady=12)
+
+    def dodaj_akcje(self, rzad: ctk.CTkFrame) -> None:
+        """Miejsce na dodatkowe przyciski zaznaczonej pozycji."""
 
     @abstractmethod
-    def wiersze(self) -> list[Wiersz]:
-        """Zwraca wiersze tabeli."""
+    def pozycje(self) -> list[Pozycja]:
+        """Zwraca pozycje listy."""
 
     @abstractmethod
     def dodaj(self) -> Formularz | None:
-        """Otwiera formularz nowej pozycji."""
+        """Otwiera panel nowej pozycji."""
 
     @abstractmethod
     def usun_rekord(self, numer: int) -> None:
@@ -60,15 +72,30 @@ class ZakladkaListy(ctk.CTkFrame):
 
     def odswiez(self) -> None:
         """Wczytuje aktualne dane."""
-        self.tabela.wypelnij(self.wiersze())
+        self.tabela.wypelnij(self.pozycje())
+        self._wybrano()
 
-    def usun(self) -> None:
-        """Usuwa zaznaczoną pozycję po potwierdzeniu."""
+    def wybrany_numer(self) -> int:
+        """Zwraca numer zaznaczonej pozycji."""
         numer = self.tabela.zaznaczony()
         if numer is None:
             raise NieZnalezionoRekordu("Najpierw zaznacz pozycję na liście.")
-        nazwa = self.tabela.komorka(numer, 0)
-        if self.okno.zapytaj(f"Usunąć „{nazwa}”?"):
+        return numer
+
+    def usun(self) -> None:
+        """Usuwa zaznaczoną pozycję po potwierdzeniu."""
+        numer = self.wybrany_numer()
+        nazwa = self.tabela.pozycja(numer).tytul
+        if self.okno.zapytaj(f"Usunąć „{nazwa}”?", "Usuń", grozne=True):
             self.usun_rekord(numer)
             self.okno.powiadom("Usunięto.")
-            self.odswiez()
+            self.okno.odswiez()
+
+    def _wybrano(self) -> None:
+        """Pokazuje przyciski dla zaznaczonej pozycji."""
+        numer = self.tabela.zaznaczony()
+        if numer is None:
+            self._akcje.pack_forget()
+            return
+        self._nazwa_wybranej.configure(text=self.tabela.pozycja(numer).tytul)
+        self._akcje.pack(side="bottom", fill="x", padx=12, pady=(0, 12))

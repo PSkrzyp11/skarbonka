@@ -1,127 +1,191 @@
-"""Pulpit: najważniejsze liczby, wykres salda i sprawy do załatwienia."""
+"""Pulpit: saldo, bieżący miesiąc, ostatnie transakcje i sprawy do załatwienia."""
 
 from datetime import date
+from typing import Any
 
 import customtkinter as ctk
 
-from skarbonka.gui import styl
+from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularze_transakcji import nowa_transakcja
+from skarbonka.gui.lista import Lista
+from skarbonka.gui.pozycje import kwota_ze_znakiem, pozycje_transakcji
 from skarbonka.gui.skladniki import (
-    Kafelek,
     Karta,
-    Tabela,
+    Przewijana,
     Wykres,
     etykieta,
-    przewijana,
+    kafelek_ikony,
+    pasek_postepu,
     przycisk,
+    pusty_stan,
+    ramka,
     wyczysc,
 )
 from skarbonka.gui.widok import Widok
-from skarbonka.gui.wiersze import KOLUMNY_TRANSAKCJI, wiersze_transakcji
-from skarbonka.models.transakcja import Przychod, Wydatek
+from skarbonka.models.transakcja import Wydatek
 from skarbonka.services import analizy, wykresy
 from skarbonka.services.transakcje import posortuj
 from skarbonka.services.uwagi import zbierz_uwagi
-from skarbonka.utils.formatowanie import formatuj_kwote, formatuj_procent
+from skarbonka.utils.formatowanie import (
+    formatuj_date,
+    formatuj_dzien,
+    formatuj_kwote,
+    formatuj_miesiac,
+    formatuj_procent,
+)
 from skarbonka.wyjatki import ZaMaloDanych
 
-ILE_OSTATNICH = 4
-SZEROKOSC_UWAG = 290
+ILE_OSTATNICH = 5
+SZEROKOSC_BOCZNA = 370
 
 
 class WidokPulpit(Widok):
     """Strona startowa."""
 
     TYTUL = "Pulpit"
+    IKONA = ikony.DOM
 
     def buduj(self) -> None:
         przycisk(
-            self.pasek, "+ Wydatek", lambda: nowa_transakcja(self.okno, Wydatek), glowny=True
-        ).pack(side="left", padx=(0, 8))
-        przycisk(self.pasek, "+ Przychód", lambda: nowa_transakcja(self.okno, Przychod)).pack(
-            side="left"
+            self.pasek,
+            "Nowa transakcja",
+            lambda: nowa_transakcja(self.okno, Wydatek),
+            "glowny",
+            160,
+            42,
+        ).pack()
+        self._siatka = ramka(self.tresc)
+        self._siatka.grid_columnconfigure(0, weight=1)
+        self._siatka.grid_columnconfigure(1, minsize=SZEROKOSC_BOCZNA)
+        self._siatka.grid_rowconfigure(1, weight=1)
+        self._buduj_saldo()
+        self._miesiac = Karta(self._siatka, "Ten miesiąc")
+        self._miesiac.grid(row=0, column=1, sticky="nsew", padx=(20, 0))
+        self._tresc_miesiaca = ramka(self._miesiac)
+        self._tresc_miesiaca.pack(fill="both", expand=True, padx=20, pady=(2, 18))
+
+        ostatnie = Karta(self._siatka, "Ostatnie transakcje")
+        ostatnie.grid(row=1, column=0, sticky="nsew", pady=(20, 0))
+        przycisk(
+            ostatnie.gora, "Wszystkie", lambda: self.okno.pokaz_widok("Transakcje"), "cichy", 80, 28
+        ).pack(side="right")
+        self.tabela = Lista(ostatnie)
+        self.tabela.pack(fill="both", expand=True, padx=8, pady=(0, 12))
+
+        sprawy = Karta(self._siatka, "Do załatwienia")
+        sprawy.grid(row=1, column=1, sticky="nsew", padx=(20, 0), pady=(20, 0))
+        self._sprawy = Przewijana(sprawy, styl.KARTA)
+        self._sprawy.pack(fill="both", expand=True, padx=(12, 6), pady=(0, 12))
+        self._pusty = pusty_stan(
+            self.tresc,
+            ikony.KARTA,
+            "Zacznij od pierwszej transakcji",
+            "Saldo, wykresy i prognoza pojawią się same.",
+            ("Dodaj transakcję", lambda: nowa_transakcja(self.okno, Wydatek)),
         )
-        self._buduj_kafelki()
-        dol = Karta(self.tresc, "Ostatnie transakcje")
-        dol.pack(side="bottom", fill="x")
-        self.tabela = Tabela(dol, KOLUMNY_TRANSAKCJI, wysokosc=ILE_OSTATNICH)
-        self.tabela.pack(fill="x", padx=10, pady=(0, 10))
 
-        srodek = ctk.CTkFrame(self.tresc, fg_color=styl.PRZEZROCZYSTY)
-        srodek.pack(fill="both", expand=True, pady=14)
-        srodek.grid_columnconfigure(0, weight=1)
-        srodek.grid_rowconfigure(0, weight=1)
-
-        karta = Karta(srodek, "Łączne saldo, 90 dni")
-        karta.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
-        self.wykres = Wykres(karta)
-        self.wykres.pack(fill="both", expand=True, padx=8, pady=(0, 10))
-
-        prawa = Karta(srodek, "Wymaga uwagi")
-        prawa.grid(row=0, column=1, sticky="nsew")
-        self._uwagi = przewijana(prawa, szerokosc=SZEROKOSC_UWAG, tlo=styl.KARTA)
-        self._uwagi.pack(fill="both", expand=True, padx=(10, 4), pady=(0, 10))
-
-    def _buduj_kafelki(self) -> None:
-        """Tworzy rząd kafelków z liczbami."""
-        rzad = ctk.CTkFrame(self.tresc, fg_color=styl.PRZEZROCZYSTY)
-        rzad.pack(fill="x")
-        nazwy = ("Łączne saldo", "Przychody w miesiącu", "Wydatki w miesiącu", "Oszczędności")
-        self.kafelki = [Kafelek(rzad, nazwa) for nazwa in nazwy]
-        for i, kafelek in enumerate(self.kafelki):
-            rzad.grid_columnconfigure(i, weight=1, uniform="kafelki")
-            kafelek.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 14, 0))
+    def _buduj_saldo(self) -> None:
+        """Tworzy zieloną kartę z saldem i wykresem."""
+        karta = ctk.CTkFrame(self._siatka, fg_color=styl.MARKA, corner_radius=20, height=270)
+        karta.grid(row=0, column=0, sticky="nsew")
+        karta.pack_propagate(False)
+        gora = ramka(karta)
+        gora.pack(fill="x", padx=28, pady=(24, 0))
+        etykieta(gora, "Łączne saldo", 13, "mocny", styl.MARKA_TEKST).pack(anchor="w")
+        self.saldo = etykieta(gora, "", 46, "liczby", styl.BIALY)
+        self.saldo.pack(anchor="w", pady=(4, 6))
+        zmiana = ramka(gora)
+        zmiana.pack(anchor="w")
+        self._strzalka = etykieta(zmiana, "", 13, "ikony", styl.MOSIADZ)
+        self._strzalka.pack(side="left", padx=(0, 6))
+        self._zmiana = etykieta(zmiana, "", 13, kolor=styl.MARKA_TEKST)
+        self._zmiana.pack(side="left")
+        self.wykres = Wykres(karta, styl.MARKA)
+        self.wykres.pack(fill="both", expand=True, padx=14, pady=(4, 14))
 
     def odswiez(self) -> None:
         dzis = date.today()
+        self.podtytul.configure(text=formatuj_dzien(dzis, z_wzgledna=False))
         transakcje = self.serwisy.transakcje.wszystkie()
+        if not transakcje:
+            self._siatka.pack_forget()
+            self._pusty.pack(expand=True)
+            return
+        self._pusty.pack_forget()
+        self._siatka.pack(fill="both", expand=True)
         sumy = analizy.podsumowanie_miesiaca(transakcje, dzis)
         saldo = self.serwisy.konta.saldo()
+        bilans = sumy["Bilans"]
+        self.saldo.configure(text=kwota_ze_znakiem(formatuj_kwote(saldo)))
+        self._strzalka.configure(text=ikony.W_DOL if bilans < 0 else ikony.W_GORE)
+        self._zmiana.configure(
+            text=f"{kwota_ze_znakiem(formatuj_kwote(bilans))} w tym miesiącu"
+        )
+        historia = analizy.historia_salda(transakcje, saldo, dzis)
+        self.wykres.pokaz(
+            wykresy.rysuj_saldo(historia, paleta=styl.paleta_marki(), uproszczony=True)
+        )
+        ostatnie = posortuj(transakcje)[:ILE_OSTATNICH]
+        self.tabela.wypelnij(pozycje_transakcji(ostatnie, self.serwisy, z_data=True))
+        self._pokaz_miesiac(sumy)
+        self._pokaz_sprawy()
+
+    def _pokaz_miesiac(self, sumy: dict) -> None:
+        """Wypełnia kartę bieżącego miesiąca."""
+        wyczysc(self._tresc_miesiaca)
+        self._miesiac.tytul.configure(text=formatuj_miesiac(date.today()).capitalize())
+        najwiecej = max(sumy["Przychody"], sumy["Wydatki"], 1)
+        for nazwa, kolor in (("Przychody", styl.AKCENT_TEKST), ("Wydatki", styl.MOSIADZ)):
+            rzad = ramka(self._tresc_miesiaca)
+            rzad.pack(fill="x", pady=(6, 4))
+            etykieta(rzad, nazwa, kolor=styl.TEKST_DRUGI).pack(side="left")
+            etykieta(rzad, formatuj_kwote(sumy[nazwa]), 17, "liczby").pack(side="right")
+            procent = float(sumy[nazwa] / najwiecej * 100)
+            pasek_postepu(self._tresc_miesiaca, procent, kolor).pack(fill="x", pady=(0, 6))
         stopa = analizy.stopa_oszczednosci(sumy["Przychody"], sumy["Bilans"])
-        wartosci = (
-            (formatuj_kwote(saldo), styl.ZLY if saldo < 0 else styl.TEKST),
-            (formatuj_kwote(sumy["Przychody"]), styl.DOBRY),
-            (formatuj_kwote(sumy["Wydatki"]), styl.ZLY),
-            ("-" if stopa is None else formatuj_procent(stopa), styl.TEKST),
-        )
-        for kafelek, (tekst, kolor) in zip(self.kafelki, wartosci):
-            kafelek.ustaw(tekst, kolor)
-
-        if transakcje:
-            historia = analizy.historia_salda(transakcje, saldo, dzis)
-            self.wykres.pokaz(wykresy.rysuj_saldo(historia, paleta=styl.paleta()))
-        else:
-            self.wykres.pusty("Dodaj pierwszą transakcję, aby zobaczyć wykres.")
-        self.tabela.wypelnij(
-            wiersze_transakcji(posortuj(transakcje)[:ILE_OSTATNICH], self.serwisy)
-        )
-        self._pokaz_uwagi()
-
-    def _pokaz_uwagi(self) -> None:
-        """Wypisuje ostrzeżenia i prognozę."""
-        wyczysc(self._uwagi)
-        uwagi = zbierz_uwagi(self.serwisy)
-        for tekst in uwagi or ["Wszystko w porządku."]:
-            kolor = styl.UWAGA if uwagi else styl.TEKST_DRUGI
-            self._dodaj_napis(tekst, kolor)
+        self._dodaj_linie("Oszczędności", "-" if stopa is None else formatuj_procent(stopa))
         try:
             prognoza = self.serwisy.prognoza.policz()
-        except ZaMaloDanych as blad:
-            self._dodaj_napis(str(blad), styl.TEKST_DRUGI)
+        except ZaMaloDanych:
+            self._dodaj_linie("Prognoza", "za krótka historia")
             return
-        etykieta(
-            self._uwagi, "Prognoza na koniec miesiąca", gruba=True, kolor=styl.TEKST_DRUGI
-        ).pack(anchor="w", pady=(16, 0))
-        etykieta(self._uwagi, formatuj_kwote(prognoza.realistyczna), 20, gruba=True).pack(
-            anchor="w"
-        )
-        zakres = (prognoza.pesymistyczna, prognoza.optymistyczna)
-        self._dodaj_napis(
-            f"od {formatuj_kwote(zakres[0])} do {formatuj_kwote(zakres[1])}", styl.TEKST_DRUGI
+        self._dodaj_linie(
+            f"Prognoza na {formatuj_date(prognoza.koniec)[:5]}",
+            kwota_ze_znakiem(formatuj_kwote(prognoza.realistyczna)),
         )
 
-    def _dodaj_napis(self, tekst: str, kolor: styl.Kolor) -> None:
-        """Dodaje zawijany napis do karty uwag."""
-        napis = etykieta(self._uwagi, tekst, kolor=kolor)
-        napis.configure(wraplength=SZEROKOSC_UWAG - 20)
-        napis.pack(anchor="w", pady=3)
+    def _dodaj_linie(self, nazwa: str, wartosc: str) -> None:
+        """Dodaje wiersz oddzielony linią."""
+        ctk.CTkFrame(
+            self._tresc_miesiaca, height=2, fg_color=styl.LINIA, corner_radius=0
+        ).pack(fill="x", pady=10)
+        rzad = ramka(self._tresc_miesiaca)
+        rzad.pack(fill="x")
+        etykieta(rzad, nazwa, kolor=styl.TEKST_DRUGI).pack(side="left")
+        etykieta(rzad, wartosc, 17, "liczby").pack(side="right")
+
+    def _pokaz_sprawy(self) -> None:
+        """Wypisuje ostrzeżenia. Kliknięcie prowadzi do planu."""
+        wyczysc(self._sprawy)
+        uwagi = zbierz_uwagi(self.serwisy)
+        for tekst in uwagi:
+            self._dodaj_sprawe(ikony.OSTRZEZENIE, tekst, styl.UWAGA_TLO, styl.UWAGA)
+        if not uwagi:
+            self._dodaj_sprawe(
+                ikony.GOTOWE, "Wszystko w porządku.", styl.AKCENT_TLO, styl.AKCENT_TEKST
+            )
+
+    def _dodaj_sprawe(self, ikona: str, tekst: str, tlo: styl.Kolor, kolor: styl.Kolor) -> None:
+        """Dodaje jedną sprawę."""
+        rzad = ramka(self._sprawy)
+        rzad.pack(fill="x", pady=5)
+        kafelek_ikony(rzad, ikona, tlo, kolor, bok=36).pack(side="left", padx=(4, 12))
+        napis = etykieta(rzad, tekst)
+        napis.configure(wraplength=SZEROKOSC_BOCZNA - 120)
+        napis.pack(side="left", fill="x")
+        self._podepnij(rzad, napis)
+
+    def _podepnij(self, *elementy: Any) -> None:
+        for element in elementy:
+            element.configure(cursor="hand2")
+            element.bind("<Button-1>", lambda _: self.okno.pokaz_widok("Plan"))

@@ -1,9 +1,12 @@
-"""Kolory i czcionki okna.
+"""Kolory, czcionki i pasek tytułu okna.
 
-Każdy kolor to para: wersja dla motywu jasnego i ciemnego.
+Każdy kolor to para: wersja dla motywu jasnego i ciemnego. Wszystkie szarości
+mają ten sam ciepły odcień, a zieleń jest jedynym kolorem akcentu.
 """
 
-from tkinter import Misc, ttk
+import sys
+from functools import lru_cache
+from tkinter import Misc, font
 
 import customtkinter as ctk
 
@@ -11,31 +14,64 @@ from skarbonka.services.wykresy import CIEMNA, JASNA, Paleta
 
 Kolor = tuple[str, str]
 
-TLO: Kolor = ("#f1f0ec", "#141413")
-PASEK_BOCZNY: Kolor = ("#e7e5df", "#1a1a19")
+TLO: Kolor = ("#f3f1ea", "#121513")
 KARTA: Kolor = (JASNA.tlo, CIEMNA.tlo)
-OBRAMOWANIE: Kolor = (JASNA.siatka, CIEMNA.siatka)
-RAMKA: Kolor = ("#c9c7bf", "#45443f")
+WGLEBIENIE: Kolor = ("#ece9df", "#242a26")
+NAJECHANY: Kolor = ("#f1eee5", "#212723")
+WYBRANY: Kolor = (JASNA.tlo, "#3a443d")
+LINIA: Kolor = (JASNA.siatka, CIEMNA.siatka)
+RAMKA: Kolor = ("#cdc8b9", "#3d4640")
+
 TEKST: Kolor = (JASNA.tekst, CIEMNA.tekst)
 TEKST_DRUGI: Kolor = (JASNA.tekst_drugi, CIEMNA.tekst_drugi)
-AKCENT: Kolor = ("#2165b8", "#2f74c8")
-AKCENT_NAJECHANY: Kolor = ("#184e92", "#3d86df")
-NAJECHANY: Kolor = ("#dcdad3", "#2a2a28")
-WYBRANY: Kolor = (JASNA.tlo, "#55534d")
-DOBRY: Kolor = ("#0a7a2f", "#4cc46d")
-UWAGA: Kolor = ("#8a5a00", "#e0a526")
-ZLY: Kolor = ("#b8322f", "#f07b78")
+BIALY: Kolor = ("#ffffff", "#ffffff")
+
+MARKA: Kolor = ("#12392f", "#0d2a22")
+MARKA_NAJECHANA: Kolor = ("#1b4a3e", "#143a30")
+MARKA_WYBRANA: Kolor = ("#245c4d", "#1c4b3e")
+MARKA_TEKST: Kolor = ("#b9d0c7", "#9fbab0")
+MOSIADZ: Kolor = ("#e0b04f", "#d9a441")
+
+AKCENT: Kolor = ("#14684f", "#1f7c60")
+AKCENT_NAJECHANY: Kolor = ("#0f5440", "#259070")
+AKCENT_TEKST: Kolor = ("#14684f", "#62c6a1")
+AKCENT_TLO: Kolor = ("#dcebe3", "#1c382f")
+
+DOBRY: Kolor = ("#14684f", "#62c6a1")
+UWAGA: Kolor = ("#8f5d08", "#e3b254")
+UWAGA_TLO: Kolor = ("#f6e8c9", "#3a2f17")
+ZLY: Kolor = ("#a9362c", "#ef877c")
+ZLY_TLO: Kolor = ("#f6dfda", "#3d2320")
 PRZEZROCZYSTY = "transparent"
 
-RODZINA = "Segoe UI"
-STYL_TABELI = "Skarbonka.Treeview"
-WYSOKOSC_WIERSZA = 32
+KROJE = {
+    "tresc": ("Segoe UI Variable Text", "Segoe UI"),
+    "mocny": ("Segoe UI Semibold", "Segoe UI"),
+    "naglowek": ("Segoe UI Variable Display", "Segoe UI"),
+    "liczby": ("Bahnschrift", "Segoe UI"),
+    "ikony": ("Segoe Fluent Icons", "Segoe MDL2 Assets"),
+}
+
 DPI_BAZOWE = 96
+DWM_KOLOR_PASKA = 35
+DWM_KOLOR_TEKSTU = 36
 
 
-def czcionka(rozmiar: int = 13, gruba: bool = False) -> ctk.CTkFont:
+@lru_cache
+def rodzina(kroj: str) -> str:
+    """Zwraca pierwszą czcionkę kroju, która jest w systemie."""
+    dostepne = set(font.families())
+    return next((nazwa for nazwa in KROJE[kroj] if nazwa in dostepne), KROJE[kroj][-1])
+
+
+def czcionka(rozmiar: int = 13, kroj: str = "tresc") -> ctk.CTkFont:
     """Tworzy czcionkę okna."""
-    return ctk.CTkFont(RODZINA, rozmiar, "bold" if gruba else "normal")
+    return ctk.CTkFont(rodzina(kroj), rozmiar, "bold" if kroj == "naglowek" else "normal")
+
+
+def skala(element: Misc) -> float:
+    """Zwraca powiększenie ekranu: 1 to 100 procent."""
+    return element.winfo_fpixels("1i") / DPI_BAZOWE
 
 
 def ustaw_motyw(motyw: str) -> None:
@@ -58,33 +94,22 @@ def paleta() -> Paleta:
     return CIEMNA if czy_ciemny() else JASNA
 
 
-def ustaw_styl_tabel(okno: Misc) -> None:
-    """Dopasowuje tabele do motywu i powiększenia ekranu."""
-    skala = okno.winfo_fpixels("1i") / DPI_BAZOWE
-    styl = ttk.Style(okno)
-    styl.theme_use("clam")
-    styl.configure(
-        STYL_TABELI,
-        background=wybierz(KARTA),
-        fieldbackground=wybierz(KARTA),
-        foreground=wybierz(TEKST),
-        bordercolor=wybierz(KARTA),
-        borderwidth=0,
-        rowheight=int(WYSOKOSC_WIERSZA * skala),
-        font=(RODZINA, 10),
-    )
-    styl.map(
-        STYL_TABELI,
-        background=[("selected", wybierz(AKCENT))],
-        foreground=[("selected", "#ffffff")],
-    )
-    styl.configure(
-        f"{STYL_TABELI}.Heading",
-        background=wybierz(KARTA),
-        foreground=wybierz(TEKST_DRUGI),
-        relief="flat",
-        font=(RODZINA, 9, "bold"),
-        padding=(6, 8),
-    )
-    styl.map(f"{STYL_TABELI}.Heading", background=[("active", wybierz(NAJECHANY))])
-    styl.layout(STYL_TABELI, [(f"{STYL_TABELI}.treearea", {"sticky": "nswe"})])
+def paleta_marki() -> Paleta:
+    """Zwraca paletę wykresu leżącego na zielonym tle."""
+    tlo = wybierz(MARKA)
+    return Paleta(tlo, "#ffffff", wybierz(MARKA_TEKST), tlo, wybierz(MOSIADZ), "#ffffff")
+
+
+def pomaluj_pasek_tytulu(okno: Misc) -> None:
+    """Dopasowuje pasek tytułu do tła. Starsze wersje Windows ignorują polecenie."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    uchwyt = ctypes.windll.user32.GetParent(okno.winfo_id())
+    for atrybut, kolor in ((DWM_KOLOR_PASKA, TLO), (DWM_KOLOR_TEKSTU, TEKST)):
+        czerwony, zielony, niebieski = bytes.fromhex(wybierz(kolor)[1:])
+        wartosc = ctypes.c_int(czerwony | zielony << 8 | niebieski << 16)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            uchwyt, atrybut, ctypes.byref(wartosc), ctypes.sizeof(wartosc)
+        )

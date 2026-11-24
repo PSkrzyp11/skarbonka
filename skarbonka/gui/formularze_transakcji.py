@@ -1,13 +1,13 @@
-"""Formularze dodawania i edycji transakcji."""
+"""Panele dodawania i edycji transakcji."""
 
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from skarbonka.gui.formularz import Formularz, Pole
+from skarbonka.gui.formularz import Formularz, Pole, Przelacznik
 from skarbonka.models.kurs import Kurs
-from skarbonka.models.transakcja import Przelew, Transakcja, Wydatek
+from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.services.waluty import WALUTY
 from skarbonka.utils.formatowanie import formatuj_date
 from skarbonka.utils.walidacja import parsuj_date, parsuj_kurs, parsuj_kwote, sprawdz_tekst
@@ -15,6 +15,9 @@ from skarbonka.wyjatki import BladWalidacji
 
 if TYPE_CHECKING:
     from skarbonka.gui.okno import Okno
+
+TYTUL = "Nowa transakcja"
+WYDATEK, PRZYCHOD, PRZELEW, WALUTA = "Wydatek", "Przychód", "Przelew", "Waluta"
 
 
 def data_nie_z_przyszlosci(tekst: str) -> date:
@@ -32,12 +35,32 @@ def _kurs_opcjonalny(tekst: str) -> Decimal | None:
     return parsuj_kurs(tekst) if tekst.strip() else None
 
 
+def _pole_kwoty(etykieta: str = "Kwota", wartosc: str = "") -> Pole:
+    return Pole("kwota", etykieta, parsuj_kwote, wartosc, rodzaj="kwota")
+
+
 def _pole_daty(wartosc: date | None = None) -> Pole:
-    return Pole("data", "Data", data_nie_z_przyszlosci, formatuj_date(wartosc or date.today()))
+    tekst = formatuj_date(wartosc or date.today())
+    return Pole("data", "Data", data_nie_z_przyszlosci, tekst, rodzaj="data")
 
 
-def _pola_opisu(okno: "Okno", rodzaj: type[Transakcja], stara: Transakcja | None = None) -> list:
-    """Zwraca pola opisu i kategorii. Reguły podpowiadają kategorię po wpisaniu opisu."""
+def _przelacznik(okno: "Okno", wybrana: str) -> Przelacznik:
+    """Zwraca przełącznik rodzaju transakcji na górze panelu."""
+    return Przelacznik(
+        {
+            WYDATEK: lambda: nowa_transakcja(okno, Wydatek),
+            PRZYCHOD: lambda: nowa_transakcja(okno, Przychod),
+            PRZELEW: lambda: nowy_przelew(okno),
+            WALUTA: lambda: wydatek_w_walucie(okno),
+        },
+        wybrana,
+    )
+
+
+def _pola_opisu(
+    okno: "Okno", rodzaj: type[Transakcja], stara: Transakcja | None = None
+) -> list[Pole]:
+    """Zwraca pola opisu i kategorii. Reguły podpowiadają kategorię w trakcie pisania."""
     serwisy = okno.serwisy
     kategorie = {k.nazwa: k for k in serwisy.kategorie.pasujace(rodzaj)}
 
@@ -55,7 +78,7 @@ def _pola_opisu(okno: "Okno", rodzaj: type[Transakcja], stara: Transakcja | None
             stara.opis if stara else "",
             po_zmianie=None if stara else podpowiedz,
         ),
-        Pole("kategoria", "Kategoria", wartosc=obecna, wybor=kategorie),
+        Pole("kategoria", "Kategoria", wartosc=obecna, wybor=kategorie, rodzaj="kafelki"),
     ]
 
 
@@ -69,7 +92,7 @@ def _zapisz(okno: "Okno", transakcja: Transakcja) -> None:
 
 
 def nowa_transakcja(okno: "Okno", rodzaj: type[Transakcja]) -> Formularz:
-    """Otwiera formularz wydatku albo przychodu."""
+    """Otwiera panel wydatku albo przychodu."""
     konta = {k.nazwa: k for k in okno.serwisy.konta.wszystkie()}
 
     def zapisz(dane: dict[str, Any]) -> None:
@@ -81,16 +104,18 @@ def nowa_transakcja(okno: "Okno", rodzaj: type[Transakcja]) -> Formularz:
         )
 
     pola = [
-        Pole("kwota", "Kwota w zł", parsuj_kwote),
+        _pole_kwoty(),
+        *_pola_opisu(okno, rodzaj),
         _pole_daty(),
         Pole("konto", "Konto", wybor=konta),
-        *_pola_opisu(okno, rodzaj),
     ]
-    return Formularz(okno, f"Nowy {rodzaj.RODZAJ}", pola, zapisz, "Dodaj")
+    wybrana = WYDATEK if rodzaj is Wydatek else PRZYCHOD
+    przelacznik = _przelacznik(okno, wybrana)
+    return Formularz(okno, TYTUL, pola, zapisz, f"Dodaj {rodzaj.RODZAJ}", przelacznik)
 
 
 def nowy_przelew(okno: "Okno") -> Formularz:
-    """Otwiera formularz przelewu między kontami."""
+    """Otwiera panel przelewu między kontami."""
     konta = {k.nazwa: k for k in okno.serwisy.konta.wszystkie()}
     if len(konta) < 2:
         raise BladWalidacji("Przelew wymaga co najmniej dwóch kont.")
@@ -104,16 +129,16 @@ def nowy_przelew(okno: "Okno") -> Formularz:
         )
 
     pola = [
-        Pole("kwota", "Kwota w zł", parsuj_kwote),
-        _pole_daty(),
+        _pole_kwoty(),
         Pole("zrodlo", "Z konta", wybor=konta),
         Pole("cel", "Na konto", wartosc=list(konta)[1], wybor=konta),
+        _pole_daty(),
     ]
-    return Formularz(okno, "Nowy przelew", pola, zapisz, "Dodaj")
+    return Formularz(okno, TYTUL, pola, zapisz, "Dodaj przelew", _przelacznik(okno, PRZELEW))
 
 
 def wydatek_w_walucie(okno: "Okno") -> Formularz:
-    """Otwiera formularz wydatku przeliczanego po kursie NBP."""
+    """Otwiera panel wydatku przeliczanego po kursie NBP."""
     konta = {k.nazwa: k for k in okno.serwisy.konta.wszystkie()}
 
     def zapisz(dane: dict[str, Any]) -> None:
@@ -135,19 +160,29 @@ def wydatek_w_walucie(okno: "Okno") -> Formularz:
             ),
         )
 
+    def pokaz_walute(formularz: Formularz) -> None:
+        formularz.ustaw_jednostke("kwota", formularz.wartosc("waluta"))
+
     pola = [
-        Pole("waluta", "Waluta", wybor={waluta: waluta for waluta in WALUTY}),
-        Pole("kwota", "Kwota w walucie", parsuj_kwote),
-        _pole_daty(),
-        Pole("kurs", "Kurs (puste = pobierz z NBP)", _kurs_opcjonalny),
-        Pole("konto", "Konto", wybor=konta),
+        _pole_kwoty("Kwota w walucie"),
+        Pole(
+            "waluta",
+            "Waluta",
+            wybor={waluta: waluta for waluta in WALUTY},
+            po_zmianie=pokaz_walute,
+        ),
+        Pole("kurs", "Kurs (puste pobiera z NBP)", _kurs_opcjonalny),
         *_pola_opisu(okno, Wydatek),
+        _pole_daty(),
+        Pole("konto", "Konto", wybor=konta),
     ]
-    return Formularz(okno, "Wydatek w obcej walucie", pola, zapisz, "Dodaj")
+    formularz = Formularz(okno, TYTUL, pola, zapisz, "Dodaj wydatek", _przelacznik(okno, WALUTA))
+    pokaz_walute(formularz)
+    return formularz
 
 
 def edycja(okno: "Okno", stara: Transakcja) -> Formularz:
-    """Otwiera formularz zmiany istniejącej transakcji."""
+    """Otwiera panel zmiany istniejącej transakcji."""
     serwisy = okno.serwisy
     czy_przelew = isinstance(stara, Przelew)
 
@@ -160,15 +195,15 @@ def edycja(okno: "Okno", stara: Transakcja) -> Formularz:
         serwisy.transakcje.zmien(replace(stara, **zmiany))
         okno.powiadom("Zapisano zmiany.")
 
-    pola = [
-        Pole("kwota", "Kwota w zł", parsuj_kwote, f"{stara.kwota:.2f}".replace(".", ",")),
-        _pole_daty(stara.data),
-    ]
+    pola = [_pole_kwoty(wartosc=f"{stara.kwota:.2f}".replace(".", ","))]
     if czy_przelew:
-        pola.append(Pole("opis", "Opis", opis_pola, stara.opis))
+        pola += [Pole("opis", "Opis", opis_pola, stara.opis), _pole_daty(stara.data)]
     else:
         konta = {k.nazwa: k for k in serwisy.konta.wszystkie()}
         nazwa_konta = serwisy.konta.nazwy()[stara.konto_id]
-        pola.append(Pole("konto", "Konto", wartosc=nazwa_konta, wybor=konta))
-        pola += _pola_opisu(okno, type(stara), stara)
+        pola += [
+            *_pola_opisu(okno, type(stara), stara),
+            _pole_daty(stara.data),
+            Pole("konto", "Konto", wartosc=nazwa_konta, wybor=konta),
+        ]
     return Formularz(okno, f"Edycja: {stara.RODZAJ}", pola, zapisz)

@@ -1,26 +1,37 @@
-"""Zakładki ustawień: konta, kategorie, reguły, profile i próg."""
+"""Zakładki ustawień: konta, kategorie, reguły i profile."""
 
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from tkinter import filedialog
-from typing import Any, ClassVar
+from typing import Any
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
-from skarbonka.gui import styl
+from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz, Pole
-from skarbonka.gui.skladniki import Kolumna, Wiersz
+from skarbonka.gui.lista import Pozycja
+from skarbonka.gui.pozycje import kwota_ze_znakiem
 from skarbonka.gui.zakladka_listy import ZakladkaListy, parser_nazwy
 from skarbonka.models.enums import TypKonta
 from skarbonka.models.importy import ProfilCSV
-from skarbonka.services.profile import KODOWANIA, MAKS_POMINIETYCH_LINII, SEPARATORY
+from skarbonka.services.profile import (
+    KODOWANIA,
+    MAKS_POMINIETYCH_LINII,
+    PROFIL_SKARBONKI,
+    SEPARATORY,
+)
 from skarbonka.utils.formatowanie import formatuj_kwote
 from skarbonka.utils.walidacja import parsuj_kwote, parsuj_liczbe, sprawdz_tekst
 from skarbonka.wyjatki import BladWalidacji
 
-OPOZNIENIE = 150
+OPOZNIENIE = 30
 MAKS_PRIORYTET = 100
 WYDATKI, PRZYCHODY = "wydatki", "przychody"
+IKONY_KONT = {
+    TypKonta.GOTOWKA: ikony.KARTA,
+    TypKonta.BIEZACE: ikony.BANK,
+    TypKonta.OSZCZEDNOSCI: ikony.ARCHIWUM,
+}
 
 
 def _saldo(tekst: str) -> Decimal:
@@ -31,22 +42,20 @@ def _saldo(tekst: str) -> Decimal:
 class ZakladkaKonta(ZakladkaListy):
     """Konta z saldami."""
 
-    KOLUMNY: ClassVar = [
-        Kolumna("Nazwa", 220, rozciagliwa=True),
-        Kolumna("Typ", 200),
-        Kolumna("Saldo", 150, do_prawej=True),
-    ]
+    OPIS = "Gotówka, konta bankowe i oszczędności"
 
-    def wiersze(self) -> list[Wiersz]:
+    def pozycje(self) -> list[Pozycja]:
         wynik = []
         for konto in self.serwisy.konta.wszystkie():
             saldo = self.serwisy.konta.saldo(konto.id)
             wynik.append(
-                Wiersz(
+                Pozycja(
                     konto.id,
-                    (konto.nazwa, str(konto.typ), formatuj_kwote(saldo)),
-                    (konto.nazwa.casefold(), str(konto.typ), saldo),
-                    styl.ZLY if saldo < 0 else None,
+                    IKONY_KONT[konto.typ],
+                    konto.nazwa,
+                    str(konto.typ),
+                    kwota_ze_znakiem(formatuj_kwote(saldo)),
+                    kolor=styl.ZLY if saldo < 0 else styl.TEKST,
                 )
             )
         return wynik
@@ -54,13 +63,14 @@ class ZakladkaKonta(ZakladkaListy):
     def dodaj(self) -> Formularz:
         def zapisz(dane: dict[str, Any]) -> None:
             self.serwisy.konta.dodaj(dane["nazwa"], dane["typ"], dane["saldo"])
+            self.okno.powiadom(f"Dodano konto {dane['nazwa']}.")
 
         pola = [
+            Pole("saldo", "Obecne saldo", _saldo, "0", rodzaj="kwota"),
             Pole("nazwa", "Nazwa", parser_nazwy(self.serwisy.konta.sprawdz_nazwe)),
             Pole("typ", "Typ", wybor={str(typ): typ for typ in TypKonta}),
-            Pole("saldo", "Saldo początkowe w zł", _saldo, "0"),
         ]
-        return Formularz(self.okno, "Nowe konto", pola, zapisz, "Dodaj")
+        return Formularz(self.okno, "Nowe konto", pola, zapisz, "Dodaj konto")
 
     def usun_rekord(self, numer: int) -> None:
         self.serwisy.konta.usun(self.serwisy.konta.pobierz(numer))
@@ -69,23 +79,30 @@ class ZakladkaKonta(ZakladkaListy):
 class ZakladkaKategorie(ZakladkaListy):
     """Kategorie wydatków i przychodów."""
 
-    KOLUMNY: ClassVar = [Kolumna("Nazwa", 260, rozciagliwa=True), Kolumna("Rodzaj", 200)]
+    OPIS = "Ikona dobiera się sama na podstawie nazwy"
 
-    def wiersze(self) -> list[Wiersz]:
+    def pozycje(self) -> list[Pozycja]:
         return [
-            Wiersz(k.id, (k.nazwa, WYDATKI if k.czy_wydatek else PRZYCHODY))
+            Pozycja(
+                k.id,
+                ikony.dla_nazwy(k.nazwa),
+                k.nazwa,
+                WYDATKI if k.czy_wydatek else PRZYCHODY,
+                wyrozniona=not k.czy_wydatek,
+            )
             for k in self.serwisy.kategorie.wszystkie()
         ]
 
     def dodaj(self) -> Formularz:
         def zapisz(dane: dict[str, Any]) -> None:
             self.serwisy.kategorie.dodaj(dane["nazwa"], dane["czy_wydatek"])
+            self.okno.powiadom(f"Dodano kategorię {dane['nazwa']}.")
 
         pola = [
             Pole("nazwa", "Nazwa", parser_nazwy(self.serwisy.kategorie.sprawdz_nazwe)),
             Pole("czy_wydatek", "Rodzaj", wybor={WYDATKI: True, PRZYCHODY: False}),
         ]
-        return Formularz(self.okno, "Nowa kategoria", pola, zapisz, "Dodaj")
+        return Formularz(self.okno, "Nowa kategoria", pola, zapisz, "Dodaj kategorię")
 
     def usun_rekord(self, numer: int) -> None:
         self.serwisy.kategorie.usun(self.serwisy.kategorie.pobierz(numer))
@@ -94,19 +111,18 @@ class ZakladkaKategorie(ZakladkaListy):
 class ZakladkaReguly(ZakladkaListy):
     """Reguły, które same przypisują kategorie."""
 
-    KOLUMNY: ClassVar = [
-        Kolumna("Opis zawiera", 240, rozciagliwa=True),
-        Kolumna("Kategoria", 220),
-        Kolumna("Priorytet", 100, do_prawej=True),
-    ]
+    OPIS = "Opis z podanym słowem dostaje kategorię automatycznie"
+    PUSTO = (ikony.METKA, "Na przykład: biedronka to Jedzenie.")
 
-    def wiersze(self) -> list[Wiersz]:
+    def pozycje(self) -> list[Pozycja]:
         nazwy = self.serwisy.kategorie.nazwy()
         return [
-            Wiersz(
+            Pozycja(
                 r.id,
-                (r.fraza, nazwy[r.kategoria_id], str(r.priorytet)),
-                (r.fraza.casefold(), nazwy[r.kategoria_id], r.priorytet),
+                ikony.dla_nazwy(nazwy[r.kategoria_id]),
+                r.fraza,
+                nazwy[r.kategoria_id],
+                podpis=f"priorytet {r.priorytet}",
             )
             for r in self.serwisy.kategoryzator.wszystkie()
         ]
@@ -115,21 +131,24 @@ class ZakladkaReguly(ZakladkaListy):
         def zapisz(dane: dict[str, Any]) -> None:
             self.serwisy.kategoryzator.dodaj(dane["fraza"], dane["kategoria"], dane["priorytet"])
             liczba = self.serwisy.kategoryzator.zastosuj()
-            self.okno.powiadom(f"Dodano regułę. Zmienione transakcje z kategorii Inne: {liczba}")
+            self.okno.powiadom(f"Dodano regułę. Zmienione transakcje: {liczba}")
 
         kategorie = {k.nazwa: k for k in self.serwisy.kategorie.wszystkie()}
         pola = [
             Pole(
                 "fraza",
-                "Fragment opisu",
+                "Opis zawiera",
                 lambda tekst: sprawdz_tekst(tekst, "Fragment opisu", MAKS_DLUGOSC_NAZWY),
             ),
-            Pole("kategoria", "Kategoria", wybor=kategorie),
+            Pole("kategoria", "Kategoria", wybor=kategorie, rodzaj="kafelki"),
             Pole(
-                "priorytet", "Priorytet", lambda tekst: parsuj_liczbe(tekst, MAKS_PRIORYTET), "0"
+                "priorytet",
+                "Priorytet (wyższy wygrywa)",
+                lambda tekst: parsuj_liczbe(tekst, MAKS_PRIORYTET),
+                "0",
             ),
         ]
-        return Formularz(self.okno, "Nowa reguła", pola, zapisz, "Dodaj")
+        return Formularz(self.okno, "Nowa reguła", pola, zapisz, "Dodaj regułę")
 
     def usun_rekord(self, numer: int) -> None:
         reguly = {r.id: r for r in self.serwisy.kategoryzator.wszystkie()}
@@ -139,16 +158,17 @@ class ZakladkaReguly(ZakladkaListy):
 class ZakladkaProfile(ZakladkaListy):
     """Układy plików CSV z banków."""
 
-    KOLUMNY: ClassVar = [
-        Kolumna("Nazwa", 200, rozciagliwa=True),
-        Kolumna("Kolumna daty", 170),
-        Kolumna("Kolumna kwoty", 170),
-        Kolumna("Kolumna opisu", 170),
-    ]
+    OPIS = "Jak czytać wyciąg z Twojego banku"
 
-    def wiersze(self) -> list[Wiersz]:
+    def pozycje(self) -> list[Pozycja]:
         return [
-            Wiersz(numer, (p.nazwa, p.kolumna_data, p.kolumna_kwota, p.kolumna_opis))
+            Pozycja(
+                numer,
+                ikony.BANK if p != PROFIL_SKARBONKI else ikony.KARTA,
+                p.nazwa,
+                ", ".join(p.wymagane_kolumny),
+                podpis="wbudowany" if p == PROFIL_SKARBONKI else "",
+            )
             for numer, p in enumerate(self.serwisy.profile.wszystkie())
         ]
 
@@ -195,10 +215,10 @@ class ZakladkaProfile(ZakladkaListy):
             Pole("kwota", "Kolumna z kwotą", wybor=wybor),
             Pole("opis", "Kolumna z opisem", wybor=wybor),
         ]
-        return Formularz(self.okno, f"Kolumny: {profil.nazwa}", pola, zapisz, "Dodaj")
+        return Formularz(self.okno, f"Kolumny: {profil.nazwa}", pola, zapisz, "Dodaj profil")
 
     def usun_rekord(self, numer: int) -> None:
         profil = self.serwisy.profile.wszystkie()[numer]
-        if profil not in self.serwisy.profile.wlasne():
+        if profil == PROFIL_SKARBONKI:
             raise BladWalidacji("Wbudowanego profilu nie można usunąć.")
         self.serwisy.profile.usun(profil)

@@ -19,7 +19,7 @@ def test_wszystkie_wykresy_powstaja(transakcje, tmp_path):
     rysunki = (
         wykresy.rysuj_kategorie(KWOTY, wykresy.tytul_kategorii(LISTOPAD)),
         wykresy.rysuj_trend(analizy.trend(transakcje, LISTOPAD), paleta=wykresy.CIEMNA),
-        wykresy.rysuj_saldo(historia),
+        wykresy.rysuj_saldo(historia, uproszczony=True),
     )
     for numer, rysunek in enumerate(rysunki):
         wykresy.zapisz(rysunek, tmp_path / "nowy" / f"{numer}.png")

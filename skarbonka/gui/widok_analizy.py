@@ -1,66 +1,153 @@
 """Analizy: wykresy i prognoza."""
 
+import tkinter as tk
 from datetime import date
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, font
+from typing import Any
 
 import customtkinter as ctk
 
-from skarbonka.gui import styl
-from skarbonka.gui.skladniki import Kafelek, Karta, WyborMiesiaca, Wykres, etykieta, przycisk
+from skarbonka.gui import ikony, styl
+from skarbonka.gui.pozycje import kwota_ze_znakiem
+from skarbonka.gui.skladniki import (
+    Karta,
+    WyborMiesiaca,
+    Wykres,
+    etykieta,
+    przycisk,
+    ramka,
+    segment,
+)
 from skarbonka.gui.widok import Widok
 from skarbonka.services import analizy, wykresy
+from skarbonka.services.prognoza import Prognoza
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.wyjatki import BladPliku, ZaMaloDanych
 
 KATEGORIE, TREND, SALDO = "Kategorie", "Trend", "Saldo"
+OPISY = {
+    KATEGORIE: "Na co poszły pieniądze w wybranym miesiącu",
+    TREND: "Przychody i wydatki z ostatnich 6 miesięcy",
+    SALDO: "Łączne saldo kont z ostatnich 90 dni",
+}
+
+
+class ZakresPrognozy(ctk.CTkFrame):
+    """Oś od wariantu pesymistycznego do optymistycznego."""
+
+    def __init__(self, rodzic: Any) -> None:
+        super().__init__(rodzic, fg_color=styl.KARTA)
+        self._skala = styl.skala(self)
+        self._prognoza: Prognoza | None = None
+        self._mala = font.Font(
+            root=self, family=styl.rodzina("tresc"), size=-round(12 * self._skala)
+        )
+        self._liczby = font.Font(
+            root=self, family=styl.rodzina("liczby"), size=-round(15 * self._skala)
+        )
+        self.plotno = tk.Canvas(
+            self, highlightthickness=0, height=round(74 * self._skala), width=200
+        )
+        self.plotno.pack(fill="both", expand=True)
+        self.plotno.bind("<Configure>", lambda _: self._rysuj())
+
+    def pokaz(self, prognoza: Prognoza) -> None:
+        """Rysuje podaną prognozę."""
+        self._prognoza = prognoza
+        self._rysuj()
+
+    def _rysuj(self) -> None:
+        plotno = self.plotno
+        plotno.delete("all")
+        plotno.configure(bg=styl.wybierz(styl.KARTA))
+        if self._prognoza is None:
+            return
+        s = self._skala
+        lewa, prawa, y = 12 * s, plotno.winfo_width() - 12 * s, 18 * s
+        niska, wysoka = self._prognoza.pesymistyczna, self._prognoza.optymistyczna
+        zakres = float(wysoka - niska) or 1.0
+        x = lewa + (prawa - lewa) * float(self._prognoza.realistyczna - niska) / zakres
+        grubosc = 8 * s
+        for x0, x1, kolor in (
+            (lewa, prawa, styl.WGLEBIENIE),
+            (lewa, x, styl.AKCENT_TEKST),
+        ):
+            plotno.create_line(
+                x0, y, x1, y, width=grubosc, capstyle="round", fill=styl.wybierz(kolor)
+            )
+        r = 9 * s
+        plotno.create_oval(
+            x - r,
+            y - r,
+            x + r,
+            y + r,
+            fill=styl.wybierz(styl.AKCENT_TEKST),
+            outline=styl.wybierz(styl.KARTA),
+            width=3 * s,
+        )
+        opisy = (
+            (lewa, "w", "jak w najdroższym miesiącu", niska),
+            (prawa, "e", "jak w najtańszym miesiącu", wysoka),
+        )
+        for polozenie, strona, opis, kwota in opisy:
+            plotno.create_text(
+                polozenie,
+                y + 24 * s,
+                anchor=strona,
+                text=kwota_ze_znakiem(formatuj_kwote(kwota)),
+                font=self._liczby,
+                fill=styl.wybierz(styl.TEKST),
+            )
+            plotno.create_text(
+                polozenie,
+                y + 44 * s,
+                anchor=strona,
+                text=opis,
+                font=self._mala,
+                fill=styl.wybierz(styl.TEKST_DRUGI),
+            )
 
 
 class WidokAnalizy(Widok):
     """Wykresy z wybranego miesiąca i prognoza."""
 
     TYTUL = "Analizy"
+    IKONA = ikony.WYKRES
 
     def buduj(self) -> None:
-        self.rodzaj = ctk.CTkSegmentedButton(
-            self.pasek,
-            values=[KATEGORIE, TREND, SALDO],
-            font=styl.czcionka(),
-            height=34,
-            fg_color=styl.NAJECHANY,
-            selected_color=styl.WYBRANY,
-            selected_hover_color=styl.WYBRANY,
-            unselected_color=styl.NAJECHANY,
-            unselected_hover_color=styl.OBRAMOWANIE,
-            text_color=styl.TEKST,
-            command=lambda _: self.odswiez(),
+        przycisk(self.pasek, "Zapisz PNG", self.zapisz_png, "zwykly", 110).pack(
+            side="right", padx=(10, 0)
         )
-        self.rodzaj.set(KATEGORIE)
-        self.rodzaj.pack(side="left", padx=(0, 10))
-        przycisk(self.pasek, "Zapisz PNG", self.zapisz_png).pack(side="left")
-
-        prognoza = Karta(self.tresc, "Prognoza salda na koniec miesiąca")
-        prognoza.pack(side="bottom", fill="x", pady=(14, 0))
-        self._opis_prognozy = etykieta(prognoza, "", 12, kolor=styl.TEKST_DRUGI)
-        self._opis_prognozy.pack(anchor="w", padx=16)
-        rzad = ctk.CTkFrame(prognoza, fg_color=styl.PRZEZROCZYSTY)
-        rzad.pack(fill="x", padx=16, pady=12)
-        nazwy = ("Optymistycznie", "Realistycznie", "Pesymistycznie")
-        self.kafelki = [Kafelek(rzad, nazwa) for nazwa in nazwy]
-        for i, kafelek in enumerate(self.kafelki):
-            rzad.grid_columnconfigure(i, weight=1, uniform="prognoza")
-            kafelek.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 12, 0))
-
+        self.rodzaj = segment(self.pasek, [KATEGORIE, TREND, SALDO], lambda _: self.odswiez())
+        self.rodzaj.pack(side="right")
+        self._buduj_prognoze()
         karta = Karta(self.tresc)
         karta.pack(fill="both", expand=True)
         self.miesiac = WyborMiesiaca(karta, self.odswiez)
         self.wykres = Wykres(karta)
-        self.wykres.pack(side="bottom", fill="both", expand=True, padx=10, pady=10)
+        self.wykres.pack(side="bottom", fill="both", expand=True, padx=16, pady=(8, 16))
+
+    def _buduj_prognoze(self) -> None:
+        """Tworzy kartę prognozy na dole."""
+        karta = Karta(self.tresc)
+        karta.pack(side="bottom", fill="x", pady=(20, 0))
+        lewa = ramka(karta)
+        lewa.pack(side="left", padx=(24, 10), pady=20)
+        self._tytul_prognozy = etykieta(lewa, "", 13, "mocny", styl.TEKST_DRUGI)
+        self._tytul_prognozy.pack(anchor="w")
+        self.prognoza = etykieta(lewa, "", 32, "liczby")
+        self.prognoza.pack(anchor="w", pady=(4, 4))
+        self._opis_prognozy = etykieta(lewa, "", 12, kolor=styl.TEKST_DRUGI)
+        self._opis_prognozy.pack(anchor="w")
+        self._zakres = ZakresPrognozy(karta)
+        self._zakres.pack(side="right", fill="x", expand=True, padx=(20, 24), pady=20)
 
     def odswiez(self) -> None:
         rodzaj = self.rodzaj.get()
+        self.podtytul.configure(text=OPISY[rodzaj])
         if rodzaj == KATEGORIE:
-            self.miesiac.pack(side="top", pady=(12, 0))
+            self.miesiac.pack(side="top", anchor="w", padx=20, pady=(18, 0))
         else:
             self.miesiac.pack_forget()
         rysuj = {KATEGORIE: self._kategorie, TREND: self._trend, SALDO: self._saldo}
@@ -93,18 +180,17 @@ class WidokAnalizy(Widok):
         try:
             prognoza = self.serwisy.prognoza.policz()
         except ZaMaloDanych as blad:
+            self._tytul_prognozy.configure(text="Prognoza salda")
+            self.prognoza.configure(text="-")
             self._opis_prognozy.configure(text=str(blad))
-            for kafelek in self.kafelki:
-                kafelek.ustaw("-")
             return
+        self._tytul_prognozy.configure(text=f"Prognoza na {formatuj_date(prognoza.koniec)}")
+        self.prognoza.configure(text=kwota_ze_znakiem(formatuj_kwote(prognoza.realistyczna)))
         self._opis_prognozy.configure(
-            text=f"Do {formatuj_date(prognoza.koniec)} zostało dni: {prognoza.dni}. "
-            f"Transakcje cykliczne: {formatuj_kwote(prognoza.cykliczne)}. "
-            f"Średnie wydatki dzienne: {formatuj_kwote(prognoza.tempo_srednie)}."
+            text=f"Zostało dni: {prognoza.dni}, średnio "
+            f"{formatuj_kwote(prognoza.tempo_srednie)} dziennie"
         )
-        wartosci = (prognoza.optymistyczna, prognoza.realistyczna, prognoza.pesymistyczna)
-        for kafelek, kwota in zip(self.kafelki, wartosci):
-            kafelek.ustaw(formatuj_kwote(kwota), styl.ZLY if kwota < 0 else styl.TEKST)
+        self._zakres.pokaz(prognoza)
 
     def zapisz_png(self) -> None:
         """Zapisuje pokazywany wykres w wybranym miejscu."""
@@ -118,4 +204,4 @@ class WidokAnalizy(Widok):
         )
         if sciezka:
             wykresy.zapisz(self.wykres.rysunek, Path(sciezka))
-            self.okno.powiadom(f"Zapisano wykres: {sciezka}")
+            self.okno.powiadom(f"Zapisano wykres: {Path(sciezka).name}")

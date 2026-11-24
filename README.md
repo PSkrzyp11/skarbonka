@@ -4,6 +4,10 @@ Menedżer budżetu domowego z dwoma interfejsami: w oknie i w konsoli. Zapisuje 
 
 ![Pulpit w oknie](docs/okno.png)
 
+![Transakcje](docs/okno_transakcje.png)
+
+![Panel dodawania w ciemnym motywie](docs/okno_panel.png)
+
 ![Analizy w ciemnym motywie](docs/okno_analizy.png)
 
 ![Pulpit i menu w konsoli](docs/pulpit.svg)
@@ -90,14 +94,14 @@ Pliki do wypróbowania importu są w katalogu `przyklady`: poprawny `wyciag_demo
 
 | Widok | Co zawiera |
 |---|---|
-| Pulpit | salda, wykres, ostrzeżenia, prognoza, ostatnie transakcje |
-| Transakcje | filtrowanie w trakcie pisania, sortowanie po kolumnach, dodawanie, edycja (także dwuklikiem) i usuwanie |
+| Pulpit | saldo z wykresem, bieżący miesiąc, prognoza, ostatnie transakcje, sprawy do załatwienia |
+| Transakcje | lista pogrupowana dniami, szukanie w trakcie pisania, filtry okresu, konta i kategorii, edycja (także dwuklikiem) i usuwanie |
 | Plan | budżety i cele z paskami postępu, transakcje cykliczne z zaległościami |
 | Analizy | wykresy kategorii, trendu i salda, zapis do PNG, prognoza |
 | Dane | import z podglądem i duplikatami, eksport, raport, kopie zapasowe |
 | Ustawienia | konta, kategorie, reguły, profile CSV, próg ostrzeżeń |
 
-Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
+Transakcje dodaje się w panelu wysuwanym z prawej: kategorię wybiera się kafelkiem z ikoną, a reguły podpowiadają ją w trakcie pisania opisu. Skróty: `Ctrl+N` nowa transakcja, `Ctrl+1` do `Ctrl+6` widoki, `Enter` zapis, `Esc` zamknięcie panelu. Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
 
 ## Architektura
 
@@ -112,7 +116,7 @@ skarbonka/
   services/             logika: salda, filtry, budżety, prognoza, import, raporty
   storage/              baza SQLite, pliki CSV i JSON
   ui/                   interfejs konsolowy: menu, ekrany, wczytywanie
-  gui/                  interfejs okienkowy: widoki, formularze, tabele
+  gui/                  interfejs okienkowy: widoki, panele, listy
   utils/                walidacja, formatowanie, daty, logi
 tests/                  testy pytest
 przyklady/              pliki CSV do importu

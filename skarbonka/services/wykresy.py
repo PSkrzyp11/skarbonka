@@ -32,13 +32,13 @@ class Paleta:
     drugi: str
 
 
-JASNA = Paleta("#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df", "#2a78d6", "#eb6834")
-CIEMNA = Paleta("#1f1f1e", "#f0efec", "#c3c2b7", "#3a3935", "#3987e5", "#d95926")
+JASNA = Paleta("#fdfcf9", "#1b211e", "#5c645f", "#e4e0d5", "#0b7a5a", "#c4841c")
+CIEMNA = Paleta("#1a1f1c", "#eef0ec", "#a4aea7", "#2c342f", "#2ea37c", "#b98a2c")
 
 ROZMIAR = (9, 5)
-GRUBOSC_SLUPKA = 0.36
+GRUBOSC_SLUPKA = 0.42
 GRUBOSC_KOLUMNY = 0.22
-MARGINES = 0.2
+MARGINES = 0.12
 ROZDZIELCZOSC = 130
 
 
@@ -90,15 +90,28 @@ def rysuj_trend(
 
 
 def rysuj_saldo(
-    historia: list[tuple[date, Decimal]], tytul: str = "", paleta: Paleta = JASNA
+    historia: list[tuple[date, Decimal]],
+    tytul: str = "",
+    paleta: Paleta = JASNA,
+    uproszczony: bool = False,
 ) -> "Figure":
-    """Rysuje linię łącznego salda i podpisuje ostatnią wartość."""
+    """Rysuje linię łącznego salda i podpisuje ostatnią wartość.
+
+    Wersja uproszczona to sam kształt linii, bez osi i podpisów.
+    """
     rysunek, osie = _nowy_rysunek(tytul, paleta)
     daty, salda = zip(*historia)
     wartosci = [float(saldo) for saldo in salda]
     osie.plot(daty, wartosci, color=paleta.pierwszy, linewidth=2, solid_capstyle="round")
+    dol = min(wartosci) - (max(wartosci) - min(wartosci) or 1) * 0.25 if uproszczony else 0
+    osie.fill_between(daty, wartosci, dol, color=paleta.pierwszy, alpha=0.12, linewidth=0)
     styl_punktu = {"markersize": 9, "markeredgecolor": paleta.tlo, "markeredgewidth": 2}
     osie.plot(daty[-1], wartosci[-1], "o", color=paleta.pierwszy, **styl_punktu)
+    if uproszczony:
+        osie.set_axis_off()
+        osie.margins(x=0.02)
+        osie.set_ylim(bottom=dol)
+        return rysunek
     osie.annotate(
         formatuj_kwote(salda[-1]),
         (daty[-1], wartosci[-1]),

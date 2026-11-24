@@ -5,29 +5,34 @@ from typing import TYPE_CHECKING, Any
 
 import customtkinter as ctk
 
-from skarbonka.gui import styl
-from skarbonka.gui.skladniki import etykieta
+from skarbonka.gui import ikony, styl
+from skarbonka.gui.skladniki import etykieta, ramka
 
 if TYPE_CHECKING:
     from skarbonka.gui.okno import Okno
 
 
 class Widok(ctk.CTkFrame):
-    """Strona okna: tytuł, pasek przycisków i treść."""
+    """Strona okna: tytuł z podtytułem, pasek przycisków i treść."""
 
     TYTUL = ""
+    IKONA = ikony.DOM
 
     def __init__(self, rodzic: Any, okno: "Okno") -> None:
         super().__init__(rodzic, fg_color=styl.PRZEZROCZYSTY)
         self.okno = okno
         self.serwisy = okno.serwisy
-        gora = ctk.CTkFrame(self, fg_color=styl.PRZEZROCZYSTY)
-        gora.pack(fill="x", padx=28, pady=(22, 14))
-        etykieta(gora, self.TYTUL, 24, gruba=True).pack(side="left")
-        self.pasek = ctk.CTkFrame(gora, fg_color=styl.PRZEZROCZYSTY, width=0, height=0)
-        self.pasek.pack(side="right")
-        self.tresc = ctk.CTkFrame(self, fg_color=styl.PRZEZROCZYSTY)
-        self.tresc.pack(fill="both", expand=True, padx=28, pady=(0, 8))
+        gora = ramka(self)
+        gora.pack(fill="x", padx=36, pady=(30, 20))
+        napisy = ramka(gora)
+        napisy.pack(side="left")
+        etykieta(napisy, self.TYTUL, 30, "naglowek").pack(anchor="w")
+        self.podtytul = etykieta(napisy, "", 13, kolor=styl.TEKST_DRUGI)
+        self.podtytul.pack(anchor="w", pady=(2, 0))
+        self.pasek = ramka(gora)
+        self.pasek.pack(side="right", anchor="s")
+        self.tresc = ramka(self)
+        self.tresc.pack(fill="both", expand=True, padx=36, pady=(0, 30))
         self.buduj()
 
     @abstractmethod

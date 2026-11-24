@@ -7,7 +7,12 @@ import pytest
 
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.utils.daty import przesun_miesiac
-from skarbonka.utils.formatowanie import formatuj_kwote, formatuj_miesiac, formatuj_procent
+from skarbonka.utils.formatowanie import (
+    formatuj_dzien,
+    formatuj_kwote,
+    formatuj_miesiac,
+    formatuj_procent,
+)
 from skarbonka.wyjatki import BladWalidacji, NieprawidlowaKwota
 
 DZIEN = date(2026, 11, 24)
@@ -57,6 +62,15 @@ def test_tekst_transakcji():
     assert "24.11.2026" in tekst
     assert "-1 234,50 zł" in tekst
     assert "Czynsz" in tekst
+
+
+def test_dzien_slownie():
+    dzis = date(2026, 11, 24)
+    assert formatuj_dzien(dzis, dzis) == "Dziś"
+    assert formatuj_dzien(date(2026, 11, 23), dzis) == "Wczoraj"
+    assert formatuj_dzien(date(2026, 11, 21), dzis) == "Sobota, 21 listopada"
+    assert formatuj_dzien(date(2025, 1, 1), dzis) == "Środa, 1 stycznia 2025"
+    assert formatuj_dzien(dzis, dzis, z_wzgledna=False) == "Wtorek, 24 listopada"
 
 
 def test_formatowanie():

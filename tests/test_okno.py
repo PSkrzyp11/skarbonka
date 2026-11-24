@@ -13,14 +13,19 @@ import pytest
 from skarbonka import demo
 from skarbonka.config import KATALOG_PROJEKTU
 from skarbonka.gui import formularze_transakcji as formularze
-from skarbonka.gui import komunikaty, styl
+from skarbonka.gui import ikony, komunikaty, styl
+from skarbonka.gui.lista import Naglowek, Pozycja
 from skarbonka.gui.okno import WIDOKI, Okno
-from skarbonka.gui.okno_importu import OknoImportu
+from skarbonka.gui.okno_importu import PanelImportu
+from skarbonka.gui.pozycje import kwota_ze_znakiem
+from skarbonka.gui.skladniki import Przewijana, etykieta
+from skarbonka.gui.widok_transakcje import okresy
 from skarbonka.models.importy import ProfilCSV
 from skarbonka.models.transakcja import Przychod, Wydatek
 from skarbonka.services.profile import PROFIL_SKARBONKI
 from skarbonka.services.zestaw import dodaj_dane_startowe, utworz_serwisy
 from skarbonka.storage.baza import Baza
+from skarbonka.utils.formatowanie import formatuj_kwote
 from skarbonka.wyjatki import (
     BladKursu,
     BladPliku,
@@ -86,7 +91,7 @@ def odpowiedz(monkeypatch):
     """Zwraca funkcję ustawiającą odpowiedzi okienek systemowych."""
 
     def ustaw(tak: bool = True, otworz: str = "", zapisz: str = "") -> None:
-        monkeypatch.setattr(messagebox, "askyesno", lambda *a, **k: tak)
+        monkeypatch.setattr(Okno, "zapytaj", lambda self, *a, **k: tak)
         monkeypatch.setattr(filedialog, "askopenfilename", lambda **k: str(otworz))
         monkeypatch.setattr(filedialog, "asksaveasfilename", lambda **k: str(zapisz))
 
@@ -140,9 +145,10 @@ def test_motyw_jest_zapamietany(okno):
 
 
 def test_pulpit_pokazuje_liczby(pelne):
-    kafelek = pelne.widok().kafelki[0]
-    assert kafelek._wartosc.cget("text").endswith("zł")
-    assert pelne.widok().tabela.liczba() == 4
+    widok = pelne.widok()
+    assert widok.saldo.cget("text") == kwota_ze_znakiem(formatuj_kwote(pelne.serwisy.konta.saldo()))
+    assert widok.tabela.liczba() == 5
+    assert widok.wykres.rysunek is not None
 
 
 def test_dodanie_wydatku_i_ostrzezenie(okno):
@@ -158,8 +164,8 @@ def test_bledne_pola_zostawiaja_formularz(okno, transakcje):
     formularz = formularze.nowa_transakcja(okno, Przychod)
     wypelnij(formularz, kwota="abc", data="31.02.2026", opis="")
     assert formularz.winfo_exists()
-    assert "nie jest kwotą" in formularz._bledy["kwota"].cget("text")
-    assert "nie jest poprawną datą" in formularz._bledy["data"].cget("text")
+    assert "nie jest kwotą" in formularz.blad_pola("kwota")
+    assert "nie jest poprawną datą" in formularz.blad_pola("data")
     assert len(okno.serwisy.transakcje.wszystkie()) == len(transakcje)
     wypelnij(formularz, kwota="100", data=DZIEN, opis="Zwrot")
     assert ostatnia(okno).wplyw == Decimal("100")
@@ -179,7 +185,7 @@ def test_przelew(okno):
     assert okno.serwisy.konta.saldo(3) == Decimal("50")
     formularz = formularze.nowy_przelew(okno)
     wypelnij(formularz, kwota="50", data=DZIEN, zrodlo="ROR", cel="ROR")
-    assert "dwóch różnych kont" in formularz._blad_ogolny.cget("text")
+    assert "dwóch różnych kont" in formularz.blad_ogolny()
     formularz.destroy()
 
 
@@ -197,7 +203,7 @@ def test_wydatek_w_walucie(okno):
     okno.serwisy.waluty._pobierz = brak_internetu
     formularz = formularze.wydatek_w_walucie(okno)
     wypelnij(formularz, kwota="10", data=DZIEN, opis="Muzeum")
-    assert "brak połączenia" in formularz._blad_ogolny.cget("text")
+    assert "brak połączenia" in formularz.blad_ogolny()
     wypelnij(formularz, kurs="4,25")
     assert (ostatnia(okno).kwota, ostatnia(okno).waluta) == (Decimal("42.50"), "EUR")
     okno.serwisy.waluty._pobierz = lambda waluta, dzien: Decimal("5")
@@ -212,28 +218,47 @@ def test_filtry_transakcji(okno):
     widok.fraza.insert(0, "kawa")
     widok.odswiez()
     assert widok.tabela.liczba() == 2
-    assert "120,00 zł" in widok.podsumowanie.cget("text")
-    widok.od.insert(0, "01.11.2026")
-    widok.odswiez()
-    assert widok.tabela.liczba() == 1
+    assert "120,00 zł" in widok.podtytul.cget("text")
     widok.wyczysc_filtry()
     widok.konto.set("ROR")
     widok.kategoria.set("Mieszkanie")
     widok.odswiez()
     assert widok.tabela.liczba() == 1
-    widok.od.insert(0, "abc")
-    with pytest.raises(BladWalidacji):
-        widok.odswiez()
+    widok.wyczysc_filtry()
+    assert widok.tabela.liczba() == 5
 
 
-def test_sortowanie_po_kwocie(okno):
+def test_okresy():
+    zakresy = okresy(date(2026, 1, 15))
+    assert zakresy["Ten miesiąc"] == (date(2026, 1, 1), None)
+    assert zakresy["Poprzedni miesiąc"] == (date(2025, 12, 1), date(2025, 12, 31))
+    assert zakresy["Ostatnie 3 miesiące"] == (date(2025, 10, 15), None)
+    assert zakresy["Ten rok"] == (date(2026, 1, 1), None)
+
+
+def test_kolejnosc_i_grupowanie(okno):
     okno.pokaz_widok("Transakcje")
-    tabela = okno.widok().tabela
-    tabela._sortuj(4)
-    rosnaco = tabela.drzewo.get_children()
-    tabela._sortuj(4)
-    assert tabela.drzewo.get_children() == rosnaco[::-1]
-    assert rosnaco[-1] == "2"
+    widok = okno.widok()
+    elementy = [element for _, _, element in widok.tabela._uklad]
+    naglowki = [e for e in elementy if isinstance(e, Naglowek)]
+    assert len(naglowki) == 5
+    assert naglowki[0].tekst.startswith("Czwartek, 12 listopada")
+    widok.kolejnosc.set("od największych kwot")
+    widok.odswiez()
+    assert [p.id for p in widok.tabela.pozycje()] == [2, 5, 3, 4, 1]
+    assert len(widok.tabela._uklad) == 5
+
+
+def test_zaznaczenie_pokazuje_przyciski(okno):
+    okno.pokaz_widok("Transakcje")
+    widok = okno.widok()
+    widok.tabela.zaznacz(3)
+    assert widok._nazwa_wybranej.cget("text") == "Czynsz"
+    assert widok._akcje.winfo_manager() == "pack"
+    widok.fraza.insert(0, "kawa")
+    widok.odswiez()
+    assert widok.tabela.zaznaczony() is None
+    assert widok._akcje.winfo_manager() == ""
 
 
 def test_edycja_i_usuwanie(okno, odpowiedz):
@@ -263,7 +288,7 @@ def test_budzety(okno, odpowiedz):
     assert len(okno.serwisy.budzety.z_miesiaca(miesiac)) == 1
     zakladka.miesiac.przesun(1)
     zakladka.skopiuj()
-    assert "Skopiowane budżety: 1" in okno.tekst_powiadomienia()
+    assert okno.tekst_powiadomienia() == "Skopiowane budżety: 1"
     zakladka.usun(okno.serwisy.budzety.wykonanie(miesiac)[0])
     assert okno.serwisy.budzety.z_miesiaca(miesiac) == []
 
@@ -275,7 +300,7 @@ def test_cele(okno, odpowiedz):
     wypelnij(zakladka.dodaj(), nazwa="Rower", kwota="1000", termin="01.01.2099")
     powtorzony = zakladka.dodaj()
     wypelnij(powtorzony, nazwa="rower", kwota="1", termin="01.01.2099")
-    assert "jest już zajęta" in powtorzony._bledy["nazwa"].cget("text")
+    assert "jest już zajęta" in powtorzony.blad_pola("nazwa")
     powtorzony.destroy()
     cel = okno.serwisy.cele.wszystkie()[0]
     wypelnij(zakladka.wplac(cel), kwota="1000")
@@ -292,7 +317,7 @@ def test_cykliczne(okno, odpowiedz):
         zakladka.przelacz()
     formularz = zakladka.dodaj()
     wypelnij(formularz, nazwa="Czynsz", kwota="100", kategoria="Wynagrodzenie")
-    assert "nie pasuje do rodzaju" in formularz._blad_ogolny.cget("text")
+    assert "nie pasuje do rodzaju" in formularz.blad_ogolny()
     wypelnij(formularz, kategoria="Mieszkanie")
     cykliczna, termin = okno.serwisy.cykliczne.zalegle()[0]
     zakladka.zaksieguj(cykliczna, termin)
@@ -328,10 +353,10 @@ def test_import_i_cofniecie(okno, odpowiedz, transakcje):
     wypelnij(widok.importuj(), profil="Skarbonka", konto="ROR")
 
     podglad = okno.serwisy.importer.przygotuj(WYCIAG, PROFIL_SKARBONKI, 2)
-    OknoImportu(okno, podglad).zapisz()
+    PanelImportu(okno, podglad).zatwierdz()
     assert len(okno.serwisy.transakcje.wszystkie()) == len(transakcje) + 8
 
-    drugi = OknoImportu(okno, okno.serwisy.importer.przygotuj(WYCIAG, PROFIL_SKARBONKI, 2))
+    drugi = PanelImportu(okno, okno.serwisy.importer.przygotuj(WYCIAG, PROFIL_SKARBONKI, 2))
     assert drugi.tabela.liczba() == 0
     drugi.z_duplikatami.select()
     drugi._pokaz()
@@ -352,7 +377,7 @@ def test_bledny_plik_importu(okno, odpowiedz, tmp_path):
     okno.pokaz_widok("Dane")
     formularz = okno.widok().importuj()
     formularz.zatwierdz()
-    assert "Brak kolumn" in formularz._blad_ogolny.cget("text")
+    assert "Brak kolumn" in formularz.blad_ogolny()
     formularz.destroy()
 
 
@@ -436,6 +461,88 @@ def test_blad_w_oknie_nie_zamyka_programu(okno, caplog):
     okno.report_callback_exception(ZeroDivisionError, ZeroDivisionError("awaria"), None)
     assert "Nieoczekiwany błąd" in okno.tekst_powiadomienia()
     assert "awaria" in caplog.text
+
+
+def test_panel_jest_tylko_jeden(okno):
+    pierwszy = formularze.nowa_transakcja(okno, Wydatek)
+    drugi = formularze.nowa_transakcja(okno, Przychod)
+    assert not pierwszy.winfo_exists()
+    assert okno.panel is drugi
+    okno.pokaz_widok("Plan")
+    assert okno.panel is None
+    assert not drugi.winfo_exists()
+
+
+def test_przelacznik_rodzaju_transakcji(okno):
+    formularze.nowa_transakcja(okno, Wydatek)
+    for nazwa, klucz in (("Przelew", "zrodlo"), ("Waluta", "waluta"), ("Przychód", "kategoria")):
+        formularze._przelacznik(okno, "Wydatek").opcje[nazwa]()
+        assert klucz in okno.panel._pola
+
+
+def test_enter_zatwierdza_panel(okno, transakcje):
+    formularz = formularze.nowa_transakcja(okno, Wydatek)
+    formularz.ustaw("kwota", "5")
+    formularz.ustaw("opis", "Woda")
+    okno._zatwierdz_panel()
+    assert len(okno.serwisy.transakcje.wszystkie()) == len(transakcje) + 1
+    okno._zatwierdz_panel()
+    assert len(okno.serwisy.transakcje.wszystkie()) == len(transakcje) + 1
+
+
+def test_licznik_spraw(okno):
+    okno.serwisy.budzety.ustaw(1, date.today(), Decimal("1"))
+    okno.serwisy.transakcje.dodaj(Wydatek(date.today(), Decimal("5"), "Kawa", 1, 1))
+    okno.odswiez()
+    assert okno.pasek._pozycje["Plan"]._licznik.cget("text") == "1"
+
+
+def test_lista_skraca_dlugie_opisy(okno):
+    lista = okno.widok().tabela
+    lista.wypelnij([Pozycja(1, ikony.DOM, "x" * 300, "y" * 300, "1 000,00 zł")])
+    skrocony = lista._skroc("x" * 300, "tytul", 100)
+    assert skrocony.endswith("…")
+    assert lista._czcionki["tytul"].measure(skrocony) <= 100
+    assert lista._skroc("Kawa", "tytul", 500) == "Kawa"
+
+
+def test_pusty_pulpit_zacheca_do_dodania(baza, tmp_path, otworz):
+    serwisy = utworz_serwisy(baza, tmp_path)
+    dodaj_dane_startowe(serwisy)
+    okno = otworz(serwisy)
+    assert okno.widok()._pusty.winfo_manager() == "pack"
+    wypelnij(formularze.nowa_transakcja(okno, Wydatek), kwota="5", opis="Woda")
+    assert okno.widok()._pusty.winfo_manager() == ""
+
+
+@pytest.mark.parametrize("ile", [1, 6, 40])
+def test_pasek_przewijania_nie_zapetla_okna(okno, ile):
+    ramka = Przewijana(okno)
+    ramka.configure(height=120)
+    ramka.place(x=0, y=0, relwidth=0.5)
+    zmiany = []
+    ramka._scrollbar.bind("<Map>", lambda _: zmiany.append(1))
+    ramka._scrollbar.bind("<Unmap>", lambda _: zmiany.append(1))
+    for i in range(ile):
+        etykieta(ramka, f"Linia {i}").pack()
+    okno.deiconify()
+    for _ in range(50):
+        okno.update()
+    okno.withdraw()
+    assert len(zmiany) < 10
+
+
+@pytest.mark.parametrize(
+    ("nazwa", "ikona"),
+    [
+        ("Jedzenie", ikony.JEDZENIE),
+        ("TRANSPORT", ikony.AUTO),
+        ("Wakacje w górach", ikony.SAMOLOT),
+        ("Nieznane", ikony.METKA),
+    ],
+)
+def test_ikona_kategorii(nazwa, ikona):
+    assert ikony.dla_nazwy(nazwa) == ikona
 
 
 def test_komunikaty_bez_okna(monkeypatch):
