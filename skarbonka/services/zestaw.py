@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from skarbonka.config import KATEGORIE_PRZYCHODOW, KATEGORIE_WYDATKOW
 from skarbonka.models.enums import TypKonta
+from skarbonka.services.eksport import Eksporter
 from skarbonka.services.kategorie import SerwisKategorii
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.transakcje import SerwisTransakcji
@@ -22,15 +23,19 @@ class Serwisy:
     transakcje: SerwisTransakcji
     konta: SerwisKont
     kategorie: SerwisKategorii
+    eksporter: Eksporter
 
 
 def utworz_serwisy(baza: Baza) -> Serwisy:
     """Tworzy serwisy korzystające ze wspólnej bazy."""
     transakcje = RepozytoriumTransakcji(baza)
+    konta = SerwisKont(RepozytoriumKont(baza), transakcje)
+    kategorie = SerwisKategorii(RepozytoriumKategorii(baza), transakcje)
     return Serwisy(
         transakcje=SerwisTransakcji(transakcje),
-        konta=SerwisKont(RepozytoriumKont(baza), transakcje),
-        kategorie=SerwisKategorii(RepozytoriumKategorii(baza), transakcje),
+        konta=konta,
+        kategorie=kategorie,
+        eksporter=Eksporter(konta, kategorie),
     )
 
 

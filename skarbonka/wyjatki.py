@@ -37,5 +37,13 @@ class UszkodzonaBaza(BladBazy):
     """Plik bazy istnieje, ale nie da się go odczytać."""
 
 
+class BladPliku(BladSkarbonki):
+    """Pliku nie da się odczytać albo zapisać."""
+
+
+class UszkodzonyPlik(BladPliku):
+    """Plik istnieje, ale ma nieprawidłową zawartość."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""

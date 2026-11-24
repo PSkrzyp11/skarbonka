@@ -6,9 +6,15 @@ To jedyne miejsce w aplikacji, które używa funkcji input().
 from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
-from skarbonka.config import MAKS_DLUGOSC_NAZWY, MAKS_DLUGOSC_OPISU, SLOWO_ANULUJ
+from skarbonka.config import (
+    MAKS_DLUGOSC_NAZWY,
+    MAKS_DLUGOSC_OPISU,
+    MAKS_DLUGOSC_SCIEZKI,
+    SLOWO_ANULUJ,
+)
 from skarbonka.ui import widoki
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.utils.walidacja import (
@@ -89,6 +95,15 @@ def wczytaj_nazwe(komunikat: str, sprawdz: Callable[[str], None]) -> str:
         return nazwa
 
     return wczytaj(komunikat, parser)
+
+
+def wczytaj_sciezke(komunikat: str, domyslna: Path | None = None) -> Path:
+    """Wczytuje ścieżkę do pliku, także wklejoną w cudzysłowie."""
+    return wczytaj(
+        _z_podpowiedzia(komunikat, str(domyslna or "")),
+        lambda tekst: Path(sprawdz_tekst(tekst.strip().strip('"'), komunikat, MAKS_DLUGOSC_SCIEZKI)),
+        domyslna,
+    )
 
 
 def wczytaj_fraze(komunikat: str) -> str:
