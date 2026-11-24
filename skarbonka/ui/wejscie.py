@@ -8,7 +8,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from skarbonka.config import SLOWO_ANULUJ
+from skarbonka.config import MAKS_DLUGOSC_OPISU, SLOWO_ANULUJ
 from skarbonka.utils.walidacja import (
     parsuj_date,
     parsuj_kwote,
@@ -18,7 +18,7 @@ from skarbonka.utils.walidacja import (
     parsuj_wybor,
     sprawdz_tekst,
 )
-from skarbonka.wyjatki import AnulowanoOperacje, BladWalidacji
+from skarbonka.wyjatki import AnulowanoOperacje, BladWalidacji, NieZnalezionoRekordu
 
 
 def wczytaj(komunikat: str, parser: Callable[[str], Any], domyslna: Any = None) -> Any:
@@ -44,6 +44,15 @@ def wczytaj_kwote(komunikat: str = "Kwota") -> Decimal:
     return wczytaj(komunikat, parsuj_kwote)
 
 
+def wczytaj_saldo(komunikat: str = "Saldo początkowe") -> Decimal:
+    """Wczytuje kwotę, która może być też zerem lub liczbą ujemną."""
+    return wczytaj(
+        f"{komunikat} [0]",
+        lambda tekst: parsuj_kwote(tekst, minimum=None),
+        domyslna=Decimal("0.00"),
+    )
+
+
 def wczytaj_date(komunikat: str = "Data") -> date:
     """Wczytuje datę nie późniejszą niż dzisiejsza (Enter = dziś)."""
     dzis = date.today()
@@ -60,9 +69,9 @@ def wczytaj_miesiac(komunikat: str = "Miesiąc") -> date:
     return wczytaj(f"{komunikat} [{biezacy:%m.%Y}]", parsuj_miesiac, domyslna=biezacy)
 
 
-def wczytaj_tekst(komunikat: str) -> str:
+def wczytaj_tekst(komunikat: str, maks: int = MAKS_DLUGOSC_OPISU) -> str:
     """Wczytuje niepusty tekst."""
-    return wczytaj(komunikat, lambda tekst: sprawdz_tekst(tekst, komunikat))
+    return wczytaj(komunikat, lambda tekst: sprawdz_tekst(tekst, komunikat, maks))
 
 
 def wczytaj_numer(komunikat: str) -> int:
@@ -73,6 +82,22 @@ def wczytaj_numer(komunikat: str) -> int:
 def wczytaj_wybor(komunikat: str, dozwolone: tuple[str, ...]) -> str:
     """Wczytuje jedną z dozwolonych opcji."""
     return wczytaj(komunikat, lambda tekst: parsuj_wybor(tekst, dozwolone))
+
+
+def wybierz(komunikat: str, elementy: list[Any]) -> Any:
+    """Wypisuje numerowaną listę i zwraca wybrany element.
+
+    Gdy element jest tylko jeden, wybiera go bez pytania.
+    """
+    if not elementy:
+        raise NieZnalezionoRekordu(f"{komunikat} – brak pozycji do wyboru.")
+    if len(elementy) == 1:
+        print(f"{komunikat}: {elementy[0]}")
+        return elementy[0]
+    for numer, element in enumerate(elementy, start=1):
+        print(f"  {numer}) {element}")
+    numery = tuple(str(numer) for numer in range(1, len(elementy) + 1))
+    return elementy[int(wczytaj_wybor(komunikat, numery)) - 1]
 
 
 def potwierdz(pytanie: str) -> bool:

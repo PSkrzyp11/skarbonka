@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from skarbonka.models.transakcja import Transakcja, Wydatek
-from skarbonka.services.transakcje import saldo, suma_przychodow, suma_wydatkow
+from skarbonka.services.transakcje import bilans, suma_przychodow, suma_wydatkow
 
 
 def z_miesiaca(transakcje: list[Transakcja], miesiac: date) -> list[Transakcja]:
@@ -22,15 +22,15 @@ def podsumowanie_miesiaca(transakcje: list[Transakcja], miesiac: date) -> dict[s
     return {
         "Przychody": suma_przychodow(wybrane),
         "Wydatki": suma_wydatkow(wybrane),
-        "Bilans": saldo(wybrane),
+        "Bilans": bilans(wybrane),
     }
 
 
-def stopa_oszczednosci(przychody: Decimal, bilans: Decimal) -> float | None:
+def stopa_oszczednosci(przychody: Decimal, zostalo: Decimal) -> float | None:
     """Zwraca, jaki procent przychodów został. None, gdy nie było przychodów."""
     if przychody == 0:
         return None
-    return float(bilans / przychody * 100)
+    return float(zostalo / przychody * 100)
 
 
 def najwieksze_wydatki(transakcje: list[Transakcja], ile: int = 5) -> list[Transakcja]:

@@ -1,25 +1,32 @@
 """Transakcje: klasa bazowa oraz jej rodzaje."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from typing import ClassVar
 
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
-from skarbonka.wyjatki import NieprawidlowaKwota
+from skarbonka.wyjatki import BladWalidacji, NieprawidlowaKwota
+
+ZERO = Decimal("0.00")
 
 
 @dataclass
 class Transakcja(ABC):
     """Wspólna część wszystkich transakcji.
 
-    Kwota jest zawsze dodatnia. O tym, czy zwiększa, czy zmniejsza saldo,
-    decyduje klasa pochodna.
+    Kwota jest zawsze dodatnia. O tym, czy zwiększa, czy zmniejsza stan
+    pieniędzy, decyduje klasa pochodna.
     """
+
+    RODZAJ: ClassVar[str] = ""
+    ZNAK: ClassVar[str] = ""
 
     data: date
     kwota: Decimal
     opis: str
+    konto_id: int
     id: int | None = None
 
     def __post_init__(self) -> None:
@@ -30,16 +37,27 @@ class Transakcja(ABC):
     @property
     @abstractmethod
     def wplyw(self) -> Decimal:
-        """Zmiana salda spowodowana transakcją."""
+        """Zmiana łącznego stanu pieniędzy na wszystkich kontach."""
+
+    def wplyw_na_konto(self, konto_id: int) -> Decimal:
+        """Zmiana salda jednego, wybranego konta."""
+        return self.wplyw if konto_id == self.konto_id else ZERO
+
+    def dotyczy_konta(self, konto_id: int) -> bool:
+        """Informuje, czy transakcja jest związana z podanym kontem."""
+        return konto_id == self.konto_id
 
     def __str__(self) -> str:
-        kwota = formatuj_kwote(self.wplyw, ze_znakiem=True)
         numer = self.id or "-"
-        return f"{numer:>4}  {formatuj_date(self.data)}  {kwota:>16}  {self.opis}"
+        kwota = self.ZNAK + formatuj_kwote(self.kwota)
+        return f"{numer:>4}  {formatuj_date(self.data)}  {self.RODZAJ:<9}{kwota:>16}  {self.opis}"
 
 
 class Wydatek(Transakcja):
     """Pieniądze, które ubyły."""
+
+    RODZAJ = "wydatek"
+    ZNAK = "-"
 
     @property
     def wplyw(self) -> Decimal:
@@ -49,6 +67,37 @@ class Wydatek(Transakcja):
 class Przychod(Transakcja):
     """Pieniądze, które przybyły."""
 
+    RODZAJ = "przychód"
+    ZNAK = "+"
+
     @property
     def wplyw(self) -> Decimal:
         return self.kwota
+
+
+@dataclass
+class Przelew(Transakcja):
+    """Przesunięcie pieniędzy między własnymi kontami."""
+
+    RODZAJ: ClassVar[str] = "przelew"
+
+    konto_docelowe_id: int = field(kw_only=True)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.konto_id == self.konto_docelowe_id:
+            raise BladWalidacji("Przelew wymaga dwóch różnych kont.")
+
+    @property
+    def wplyw(self) -> Decimal:
+        return ZERO
+
+    def wplyw_na_konto(self, konto_id: int) -> Decimal:
+        if konto_id == self.konto_id:
+            return -self.kwota
+        if konto_id == self.konto_docelowe_id:
+            return self.kwota
+        return ZERO
+
+    def dotyczy_konta(self, konto_id: int) -> bool:
+        return konto_id in (self.konto_id, self.konto_docelowe_id)

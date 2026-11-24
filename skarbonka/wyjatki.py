@@ -25,5 +25,9 @@ class NieZnalezionoRekordu(BladSkarbonki):
     """Rekord o podanym numerze nie istnieje."""
 
 
+class RekordWUzyciu(BladSkarbonki):
+    """Rekordu nie można usunąć, bo coś z niego korzysta."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""

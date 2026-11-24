@@ -2,9 +2,12 @@
 
 from decimal import Decimal
 
-from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
-from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
-from skarbonka.services import analizy
+from skarbonka.config import MAKS_DLUGOSC_NAZWY, NAZWA_APLIKACJI, SLOWO_ANULUJ
+from skarbonka.models.enums import TypKonta
+from skarbonka.models.konto import Konto
+from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
+from skarbonka.services import analizy, rekordy
+from skarbonka.services import konta as serwis_kont
 from skarbonka.services import transakcje as serwis
 from skarbonka.ui.menu import Menu, OpcjaMenu
 from skarbonka.ui.wejscie import (
@@ -13,7 +16,9 @@ from skarbonka.ui.wejscie import (
     wczytaj_kwote,
     wczytaj_miesiac,
     wczytaj_numer,
+    wczytaj_saldo,
     wczytaj_tekst,
+    wybierz,
 )
 from skarbonka.utils.formatowanie import formatuj_kwote, formatuj_miesiac, formatuj_procent
 
@@ -35,12 +40,15 @@ class Aplikacja:
     """Przechowuje transakcje i łączy opcje menu z działaniami."""
 
     def __init__(self) -> None:
+        self.konta: list[Konto] = []
         self.transakcje: list[Transakcja] = []
+        rekordy.dodaj(self.konta, Konto("Portfel", TypKonta.GOTOWKA))
         menu_transakcji = Menu(
             "Transakcje",
             [
                 OpcjaMenu("Dodaj wydatek", lambda: self.dodaj(Wydatek)),
                 OpcjaMenu("Dodaj przychód", lambda: self.dodaj(Przychod)),
+                OpcjaMenu("Przelew między kontami", self.dodaj_przelew),
                 OpcjaMenu("Lista transakcji", self.pokaz_liste),
                 OpcjaMenu("Usuń transakcję", self.usun),
             ],
@@ -53,11 +61,21 @@ class Aplikacja:
                 OpcjaMenu("Największe wydatki", self.pokaz_najwieksze),
             ],
         )
+        menu_kont = Menu(
+            "Konta",
+            [
+                OpcjaMenu("Lista kont", self.pokaz_konta),
+                OpcjaMenu("Dodaj konto", self.dodaj_konto),
+                OpcjaMenu("Usuń konto", self.usun_konto),
+            ],
+        )
+        menu_ustawien = Menu("Ustawienia", [OpcjaMenu("Konta", menu_kont.uruchom)])
         self.menu_glowne = Menu(
             "Menu główne",
             [
                 OpcjaMenu("Transakcje", menu_transakcji.uruchom),
                 OpcjaMenu("Analizy", menu_analiz.uruchom),
+                OpcjaMenu("Ustawienia", menu_ustawien.uruchom),
             ],
             powrot="Wyjście",
         )
@@ -69,11 +87,27 @@ class Aplikacja:
 
     def dodaj(self, rodzaj: type[Transakcja]) -> None:
         """Wczytuje dane i dodaje transakcję podanego rodzaju."""
+        konto = wybierz("Konto", self.konta)
         kwota = wczytaj_kwote()
         data = wczytaj_date()
         opis = wczytaj_tekst("Opis")
-        transakcja = rodzaj(data, kwota, opis)
-        serwis.dodaj(self.transakcje, transakcja)
+        self._zapisz(rodzaj(data, kwota, opis, konto.id))
+
+    def dodaj_przelew(self) -> None:
+        """Wczytuje dane i dodaje przelew między dwoma kontami."""
+        if len(self.konta) < 2:
+            print("Przelew wymaga co najmniej dwóch kont.")
+            return
+        zrodlo = wybierz("Z konta", self.konta)
+        cel = wybierz("Na konto", [k for k in self.konta if k is not zrodlo])
+        kwota = wczytaj_kwote()
+        data = wczytaj_date()
+        opis = f"{zrodlo.nazwa} -> {cel.nazwa}"
+        self._zapisz(Przelew(data, kwota, opis, zrodlo.id, konto_docelowe_id=cel.id))
+
+    def _zapisz(self, transakcja: Transakcja) -> None:
+        """Dopisuje transakcję i potwierdza to na ekranie."""
+        rekordy.dodaj(self.transakcje, transakcja)
         print(f"  Dodano: {transakcja}")
 
     def pokaz_liste(self) -> None:
@@ -90,22 +124,48 @@ class Aplikacja:
         self.pokaz_liste()
         if not self.transakcje:
             return
-        transakcja = serwis.znajdz(self.transakcje, wczytaj_numer("Numer transakcji"))
+        transakcja = rekordy.znajdz(self.transakcje, wczytaj_numer("Numer transakcji"))
         print(transakcja)
         if potwierdz("Na pewno usunąć?"):
-            serwis.usun(self.transakcje, transakcja.id)
+            rekordy.usun(self.transakcje, transakcja.id)
             print("  Usunięto.")
         else:
             print("  Nic nie usunięto.")
 
     def pokaz_sumy(self) -> None:
-        """Wypisuje sumy przychodów i wydatków oraz saldo."""
+        """Wypisuje sumy przychodów i wydatków oraz salda kont."""
         sumy = {
             "Przychody": serwis.suma_przychodow(self.transakcje),
             "Wydatki": serwis.suma_wydatkow(self.transakcje),
-            "Saldo": serwis.saldo(self.transakcje),
+            "Bilans": serwis.bilans(self.transakcje),
         }
         pokaz_kwoty(sumy)
+        print()
+        self.pokaz_konta()
+
+    def pokaz_konta(self) -> None:
+        """Wypisuje konta z saldami i saldo łączne."""
+        for konto in self.konta:
+            kwota = formatuj_kwote(serwis_kont.saldo(self.konta, self.transakcje, konto.id))
+            print(f"{str(konto):<40} {kwota:>16}")
+        razem = formatuj_kwote(serwis_kont.saldo(self.konta, self.transakcje))
+        print(f"{'Razem':<40} {razem:>16}")
+
+    def dodaj_konto(self) -> None:
+        """Wczytuje dane i dodaje konto."""
+        nazwa = wczytaj_tekst("Nazwa konta", MAKS_DLUGOSC_NAZWY)
+        rekordy.sprawdz_nazwe(self.konta, nazwa)
+        typ = wybierz("Typ konta", list(TypKonta))
+        konto = Konto(nazwa, typ, wczytaj_saldo())
+        rekordy.dodaj(self.konta, konto)
+        print(f"  Dodano: {konto}")
+
+    def usun_konto(self) -> None:
+        """Usuwa wybrane konto po potwierdzeniu."""
+        konto = wybierz("Konto do usunięcia", self.konta)
+        if potwierdz(f"Na pewno usunąć „{konto.nazwa}”?"):
+            serwis_kont.usun_konto(self.konta, konto, self.transakcje)
+            print("  Usunięto.")
 
     def pokaz_miesiac(self) -> None:
         """Wypisuje podsumowanie wybranego miesiąca."""
