@@ -50,7 +50,8 @@ class EkranTransakcji(Ekran):
         kwota = wczytaj_kwote()
         data = wczytaj_date()
         opis = wczytaj_tekst("Opis")
-        kategoria = wybierz("Kategoria", self.serwisy.kategorie.pasujace(rodzaj))
+        podpowiedz = self.serwisy.kategoryzator.dopasuj(opis, rodzaj)
+        kategoria = wybierz("Kategoria", self.serwisy.kategorie.pasujace(rodzaj), podpowiedz)
         self._zapisz(rodzaj(data, kwota, opis, konto.id, kategoria.id))
 
     def dodaj_przelew(self) -> None:

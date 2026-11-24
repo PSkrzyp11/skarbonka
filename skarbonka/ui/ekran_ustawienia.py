@@ -4,6 +4,7 @@ from skarbonka.models.enums import TypKonta
 from skarbonka.models.transakcja import Przychod, Wydatek
 from skarbonka.ui import widoki
 from skarbonka.ui.ekran_profile import EkranProfili
+from skarbonka.ui.ekran_reguly import EkranRegul
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
@@ -88,6 +89,7 @@ class EkranUstawien(Ekran):
         return [
             OpcjaMenu("Konta", EkranKont(self.serwisy).uruchom),
             OpcjaMenu("Kategorie", EkranKategorii(self.serwisy).uruchom),
+            OpcjaMenu("Reguły kategorii", EkranRegul(self.serwisy).uruchom),
             OpcjaMenu("Profile CSV banków", EkranProfili(self.serwisy).uruchom),
             OpcjaMenu("Próg ostrzeżeń budżetu", self.zmien_prog),
         ]

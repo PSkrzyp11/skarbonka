@@ -1,4 +1,4 @@
-"""Repozytoria tabel związanych z planowaniem."""
+"""Repozytoria tabel związanych z planowaniem i regułami."""
 
 import sqlite3
 from datetime import date
@@ -6,6 +6,7 @@ from typing import Any
 
 from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc
+from skarbonka.models.kategoria import Regula
 from skarbonka.models.plan import Budzet, Cel, WplataCelu
 from skarbonka.storage.repozytoria import Repozytorium, na_grosze, z_groszy
 
@@ -104,4 +105,22 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             date.fromisoformat(ostatnia) if ostatnia else None,
             bool(wiersz["aktywna"]),
             wiersz["id"],
+        )
+
+
+class RepozytoriumRegul(Repozytorium[Regula]):
+    """Tabela reguł kategoryzacji."""
+
+    TABELA = "reguly"
+
+    def _na_wiersz(self, rekord: Regula) -> dict[str, Any]:
+        return {
+            "fraza": rekord.fraza,
+            "kategoria_id": rekord.kategoria_id,
+            "priorytet": rekord.priorytet,
+        }
+
+    def _z_wiersza(self, wiersz: sqlite3.Row) -> Regula:
+        return Regula(
+            wiersz["fraza"], wiersz["kategoria_id"], int(wiersz["priorytet"]), wiersz["id"]
         )

@@ -7,8 +7,10 @@ from pathlib import Path
 
 from skarbonka.config import MAKS_DLUGOSC_OPISU
 from skarbonka.models.importy import Import, ProfilCSV
+from skarbonka.models.kategoria import Kategoria
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.services.kategorie import SerwisKategorii
+from skarbonka.services.kategoryzacja import Kategoryzator
 from skarbonka.storage.baza import Baza
 from skarbonka.storage.pliki_csv import czytaj_wiersze
 from skarbonka.storage.repozytoria import RepozytoriumImportow, RepozytoriumTransakcji
@@ -39,11 +41,13 @@ class Importer:
         transakcje: RepozytoriumTransakcji,
         importy: RepozytoriumImportow,
         kategorie: SerwisKategorii,
+        kategoryzator: Kategoryzator,
     ) -> None:
         self._baza = baza
         self._transakcje = transakcje
         self._importy = importy
         self._kategorie = kategorie
+        self._kategoryzator = kategoryzator
 
     def przygotuj(self, sciezka: Path, profil: ProfilCSV, konto_id: int) -> PodgladImportu:
         """Wczytuje plik i dzieli wiersze na nowe, duplikaty i błędne.
@@ -104,15 +108,18 @@ class Importer:
             raise NieprawidlowaKwota("Kwota jest równa zero.")
         data = parsuj_date(komorka(profil.kolumna_data)[:DLUGOSC_DATY], najpozniej=date.today())
         klasa = Wydatek if kwota < 0 else Przychod
-        kategoria_id = self._kategoria_id(klasa, komorka(profil.kolumna_kategoria))
         opis = self._oczysc(komorka(profil.kolumna_opis))
-        return klasa(data, abs(kwota), opis, konto_id, kategoria_id)
+        kategoria = self._kategoria(klasa, komorka(profil.kolumna_kategoria), opis)
+        return klasa(data, abs(kwota), opis, konto_id, kategoria.id)
 
-    def _kategoria_id(self, klasa: type[Transakcja], nazwa: str) -> int:
-        """Zwraca numer kategorii o podanej nazwie, a gdy jej brak – domyślnej."""
+    def _kategoria(self, klasa: type[Transakcja], nazwa: str, opis: str) -> Kategoria:
+        """Wybiera kategorię: najpierw z pliku, potem z reguł, na końcu domyślną."""
         pasujace = {k.nazwa.casefold(): k for k in self._kategorie.pasujace(klasa)}
-        kategoria = pasujace.get(nazwa.casefold()) or self._kategorie.domyslna(klasa)
-        return kategoria.id
+        return (
+            pasujace.get(nazwa.casefold())
+            or self._kategoryzator.dopasuj(opis, klasa)
+            or self._kategorie.domyslna(klasa)
+        )
 
     @staticmethod
     def _oczysc(opis: str) -> str:

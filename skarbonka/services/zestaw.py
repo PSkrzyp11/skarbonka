@@ -9,6 +9,7 @@ from skarbonka.services.cykliczne import SerwisCyklicznych
 from skarbonka.services.eksport import Eksporter
 from skarbonka.services.importer import Importer
 from skarbonka.services.kategorie import SerwisKategorii
+from skarbonka.services.kategoryzacja import Kategoryzator
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.kopie import SerwisKopii
 from skarbonka.services.planowanie import SerwisBudzetow, SerwisCeli
@@ -26,6 +27,7 @@ from skarbonka.storage.repozytoria_planu import (
     RepozytoriumBudzetow,
     RepozytoriumCeli,
     RepozytoriumCyklicznych,
+    RepozytoriumRegul,
     RepozytoriumWplat,
 )
 
@@ -38,6 +40,7 @@ class Serwisy:
     transakcje: SerwisTransakcji
     konta: SerwisKont
     kategorie: SerwisKategorii
+    kategoryzator: Kategoryzator
     budzety: SerwisBudzetow
     cele: SerwisCeli
     cykliczne: SerwisCyklicznych
@@ -63,6 +66,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     repo_celi = RepozytoriumCeli(baza)
     repo_wplat = RepozytoriumWplat(baza)
     repo_cyklicznych = RepozytoriumCyklicznych(baza)
+    repo_regul = RepozytoriumRegul(baza)
     repozytoria = [
         repo_transakcji,
         repo_kont,
@@ -72,22 +76,25 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         repo_celi,
         repo_wplat,
         repo_cyklicznych,
+        repo_regul,
     ]
 
     ustawienia = SerwisUstawien(katalog / "ustawienia.json")
     transakcje = SerwisTransakcji(repo_transakcji)
     konta = SerwisKont(repo_kont, repo_transakcji)
     kategorie = SerwisKategorii(repo_kategorii, repo_transakcji)
+    kategoryzator = Kategoryzator(baza, repo_regul, kategorie, transakcje)
     return Serwisy(
         katalog=katalog,
         transakcje=transakcje,
         konta=konta,
         kategorie=kategorie,
+        kategoryzator=kategoryzator,
         budzety=SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia),
         cele=SerwisCeli(repo_celi, repo_wplat),
         cykliczne=SerwisCyklicznych(baza, repo_cyklicznych, transakcje),
         eksporter=Eksporter(konta, kategorie),
-        importer=Importer(baza, repo_transakcji, repo_importow, kategorie),
+        importer=Importer(baza, repo_transakcji, repo_importow, kategorie, kategoryzator),
         kopie=SerwisKopii(baza, repozytoria),
         profile=SerwisProfili(katalog / "profile_csv.json"),
         ustawienia=ustawienia,
