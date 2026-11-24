@@ -1,5 +1,6 @@
 """Uniwersalne menu tekstowe i klasa bazowa ekranów."""
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -7,7 +8,9 @@ from dataclasses import dataclass
 from skarbonka.services.zestaw import Serwisy
 from skarbonka.ui import widoki
 from skarbonka.ui.wejscie import wczytaj_wybor
-from skarbonka.wyjatki import BladSkarbonki
+from skarbonka.wyjatki import AnulowanoOperacje, BladSkarbonki
+
+logger = logging.getLogger(__name__)
 
 KLUCZ_POWROTU = "0"
 
@@ -40,7 +43,8 @@ class Menu:
     def uruchom(self) -> None:
         """Obsługuje wybory użytkownika aż do wyjścia z menu.
 
-        Przewidziany błąd w opcji nie kończy programu, tylko wraca do menu.
+        Błąd w opcji nie kończy programu, tylko wraca do menu. Wyjątkiem jest
+        koniec danych wejściowych, po którym nie ma już czego wczytywać.
         """
         dozwolone = (*self.opcje, KLUCZ_POWROTU)
         while True:
@@ -50,8 +54,16 @@ class Menu:
                 if klucz == KLUCZ_POWROTU:
                     break
                 self.opcje[klucz].akcja()
-            except BladSkarbonki as blad:
+            except AnulowanoOperacje as blad:
                 widoki.blad(str(blad))
+            except BladSkarbonki as blad:
+                logger.warning("%s: %s", type(blad).__name__, blad)
+                widoki.blad(str(blad))
+            except EOFError:
+                raise
+            except Exception:
+                logger.exception("Nieoczekiwany błąd w menu %s", self.tytul)
+                widoki.blad("Nieoczekiwany błąd. Szczegóły są w pliku logów.")
 
 
 class Ekran(ABC):

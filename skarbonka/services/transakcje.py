@@ -1,5 +1,6 @@
 """Transakcje: zapis, filtrowanie, sortowanie i sumowanie."""
 
+import logging
 from collections.abc import Callable, Iterator
 from datetime import date
 from decimal import Decimal
@@ -7,6 +8,8 @@ from decimal import Decimal
 from skarbonka.models.transakcja import ZERO, Przychod, Transakcja, Wydatek
 from skarbonka.storage.repozytoria import Repozytorium
 from skarbonka.wyjatki import BladWalidacji
+
+logger = logging.getLogger(__name__)
 
 SORTOWANIA: dict[str, tuple[Callable[[Transakcja], tuple], bool]] = {
     "od najnowszych": (lambda t: (t.data, t.id), True),
@@ -32,15 +35,19 @@ class SerwisTransakcji:
 
     def dodaj(self, transakcja: Transakcja) -> Transakcja:
         """Zapisuje nową transakcję."""
-        return self._transakcje.dodaj(transakcja)
+        self._transakcje.dodaj(transakcja)
+        logger.info("Dodano transakcję nr %s", transakcja.id)
+        return transakcja
 
     def zmien(self, transakcja: Transakcja) -> None:
         """Zapisuje zmienioną transakcję."""
         self._transakcje.zmien(transakcja)
+        logger.info("Zmieniono transakcję nr %s", transakcja.id)
 
     def usun(self, transakcja: Transakcja) -> None:
         """Usuwa transakcję."""
         self._transakcje.usun(transakcja.id)
+        logger.info("Usunięto transakcję nr %s", transakcja.id)
 
     def filtruj(
         self,

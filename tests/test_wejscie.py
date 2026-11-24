@@ -18,7 +18,14 @@ def odpowiedzi(monkeypatch):
 
     def ustaw(*teksty: str) -> None:
         kolejne = iter(teksty)
-        monkeypatch.setattr("builtins.input", lambda komunikat="": next(kolejne))
+
+        def podstawiony_input(komunikat: str = "") -> str:
+            try:
+                return next(kolejne)
+            except StopIteration:
+                raise EOFError from None
+
+        monkeypatch.setattr("builtins.input", podstawiony_input)
 
     return ustaw
 
@@ -64,6 +71,19 @@ def test_menu_przezywa_blad_opcji(odpowiedzi, capsys):
     odpowiedzi("9", "1", "0")
     Menu("Test", [OpcjaMenu("Zepsuta", zepsuta_opcja)]).uruchom()
     assert "coś poszło nie tak" in capsys.readouterr().out
+
+
+def test_menu_przezywa_nieoczekiwany_blad(odpowiedzi, capsys, caplog):
+    odpowiedzi("1", "0")
+    Menu("Test", [OpcjaMenu("Dzielenie", lambda: 1 / 0)]).uruchom()
+    assert "Nieoczekiwany błąd" in capsys.readouterr().out
+    assert "ZeroDivisionError" in caplog.text
+
+
+def test_koniec_danych_przerywa_menu(odpowiedzi):
+    odpowiedzi()
+    with pytest.raises(EOFError):
+        Menu("Test", []).uruchom()
 
 
 def test_dodanie_wydatku_przez_menu(odpowiedzi):
