@@ -20,12 +20,12 @@ if TYPE_CHECKING:
     from skarbonka.gui.okno import Okno
 
 KOLUMNY = [
-    Kolumna("Nazwa", 200, rozciagliwa=True),
-    Kolumna("Powtarzanie", 120),
-    Kolumna("Od", 100),
-    Kolumna("Ostatnio", 100),
-    Kolumna("Aktywna", 80),
-    Kolumna("Kwota", 130, do_prawej=True),
+    Kolumna("Nazwa", 150, rozciagliwa=True),
+    Kolumna("Powtarzanie", 105),
+    Kolumna("Od", 95),
+    Kolumna("Ostatnio", 95),
+    Kolumna("Aktywna", 75),
+    Kolumna("Kwota", 120, do_prawej=True),
 ]
 ILE_ZALEGLYCH = 4
 

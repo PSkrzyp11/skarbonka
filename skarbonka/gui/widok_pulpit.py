@@ -6,7 +6,16 @@ import customtkinter as ctk
 
 from skarbonka.gui import styl
 from skarbonka.gui.formularze_transakcji import nowa_transakcja
-from skarbonka.gui.skladniki import Kafelek, Karta, Tabela, Wykres, etykieta, przycisk, wyczysc
+from skarbonka.gui.skladniki import (
+    Kafelek,
+    Karta,
+    Tabela,
+    Wykres,
+    etykieta,
+    przewijana,
+    przycisk,
+    wyczysc,
+)
 from skarbonka.gui.widok import Widok
 from skarbonka.gui.wiersze import KOLUMNY_TRANSAKCJI, wiersze_transakcji
 from skarbonka.models.transakcja import Przychod, Wydatek
@@ -16,7 +25,7 @@ from skarbonka.services.uwagi import zbierz_uwagi
 from skarbonka.utils.formatowanie import formatuj_kwote, formatuj_procent
 from skarbonka.wyjatki import ZaMaloDanych
 
-ILE_OSTATNICH = 6
+ILE_OSTATNICH = 4
 SZEROKOSC_UWAG = 290
 
 
@@ -50,8 +59,8 @@ class WidokPulpit(Widok):
 
         prawa = Karta(srodek, "Wymaga uwagi")
         prawa.grid(row=0, column=1, sticky="nsew")
-        self._uwagi = ctk.CTkFrame(prawa, fg_color=styl.PRZEZROCZYSTY, width=SZEROKOSC_UWAG)
-        self._uwagi.pack(fill="both", expand=True, padx=16, pady=(0, 12))
+        self._uwagi = przewijana(prawa, szerokosc=SZEROKOSC_UWAG, tlo=styl.KARTA)
+        self._uwagi.pack(fill="both", expand=True, padx=(10, 4), pady=(0, 10))
 
     def _buduj_kafelki(self) -> None:
         """Tworzy rząd kafelków z liczbami."""

@@ -62,9 +62,11 @@ def wyczysc(ramka: Any) -> None:
         element.destroy()
 
 
-def przewijana(rodzic: Any, wysokosc: int = 200) -> ctk.CTkScrollableFrame:
-    """Tworzy przewijaną ramkę w kolorze tła."""
-    return ctk.CTkScrollableFrame(rodzic, fg_color=styl.TLO, height=wysokosc)
+def przewijana(
+    rodzic: Any, wysokosc: int = 200, szerokosc: int = 200, tlo: styl.Kolor = styl.TLO
+) -> ctk.CTkScrollableFrame:
+    """Tworzy przewijaną ramkę."""
+    return ctk.CTkScrollableFrame(rodzic, fg_color=tlo, height=wysokosc, width=szerokosc)
 
 
 def pasek_postepu(rodzic: Any, procent: float, kolor: styl.Kolor) -> ctk.CTkProgressBar:
@@ -83,8 +85,8 @@ def zakladki(rodzic: Any) -> ctk.CTkTabview:
         fg_color=styl.PRZEZROCZYSTY,
         anchor="w",
         segmented_button_fg_color=styl.NAJECHANY,
-        segmented_button_selected_color=styl.KARTA,
-        segmented_button_selected_hover_color=styl.KARTA,
+        segmented_button_selected_color=styl.WYBRANY,
+        segmented_button_selected_hover_color=styl.WYBRANY,
         segmented_button_unselected_color=styl.NAJECHANY,
         segmented_button_unselected_hover_color=styl.OBRAMOWANIE,
         segmented_button_font=styl.czcionka(),
@@ -177,10 +179,10 @@ class Tabela(ctk.CTkFrame):
                 anchor=strona,
                 stretch=kolumna.rozciagliwa,
             )
-        pasek = ctk.CTkScrollbar(self, command=self.drzewo.yview)
+        pasek = ctk.CTkScrollbar(self, height=NAJMNIEJ // 4, command=self.drzewo.yview)
         self.drzewo.configure(yscrollcommand=pasek.set)
-        self.drzewo.pack(side="left", fill="both", expand=True)
         pasek.pack(side="right", fill="y", padx=(4, 0))
+        self.drzewo.pack(side="left", fill="both", expand=True)
         if po_dwukliku is not None:
             self.drzewo.bind("<Double-1>", lambda zdarzenie: self._dwuklik(po_dwukliku))
 

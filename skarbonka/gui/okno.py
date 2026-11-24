@@ -47,7 +47,7 @@ class Okno(ctk.CTk):
         self.serwisy = serwisy
         self.title(NAZWA_APLIKACJI)
         self.geometry("1240x800")
-        self.minsize(1040, 680)
+        self.minsize(1040, 720)
         if sys.platform == "win32" and PLIK_IKONY.exists():
             self.iconbitmap(str(PLIK_IKONY))
         styl.ustaw_styl_tabel(self)

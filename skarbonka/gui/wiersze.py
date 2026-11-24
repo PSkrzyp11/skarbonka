@@ -7,11 +7,11 @@ from skarbonka.services.zestaw import Serwisy
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 
 KOLUMNY_TRANSAKCJI = [
-    Kolumna("Data", 100),
-    Kolumna("Opis", 260, rozciagliwa=True),
-    Kolumna("Konto", 170),
-    Kolumna("Kategoria", 140),
-    Kolumna("Kwota", 140, do_prawej=True),
+    Kolumna("Data", 95),
+    Kolumna("Opis", 190, rozciagliwa=True),
+    Kolumna("Konto", 120, rozciagliwa=True),
+    Kolumna("Kategoria", 115),
+    Kolumna("Kwota", 120, do_prawej=True),
 ]
 
 KOLORY = {Przychod.RODZAJ: styl.DOBRY, Przelew.RODZAJ: styl.TEKST_DRUGI}

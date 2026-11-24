@@ -108,7 +108,7 @@ def rysuj_saldo(
         color=paleta.tekst,
     )
     osie.axhline(0, color=paleta.tekst_drugi, linewidth=1)
-    podzialka = daty[:: max(1, len(daty) // 5)]
+    podzialka = daty[:: max(1, len(daty) // 4)]
     osie.set_xticks(podzialka, [f"{d:%d.%m}" for d in podzialka])
     _os_kwot(osie, paleta, rezerwa=1.1)
     return rysunek
@@ -142,7 +142,7 @@ def _nowy_rysunek(tytul: str, paleta: Paleta) -> tuple["Figure", Any]:
     osie.set_facecolor(paleta.tlo)
     if tytul:
         osie.set_title(tytul, loc="left", color=paleta.tekst, fontsize=14, pad=14)
-    osie.tick_params(colors=paleta.tekst_drugi, length=0)
+    osie.tick_params(colors=paleta.tekst_drugi, length=0, labelsize=9)
     for strona in ("top", "right", "left", "bottom"):
         osie.spines[strona].set_visible(False)
     return rysunek, osie

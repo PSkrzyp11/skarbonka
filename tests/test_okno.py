@@ -142,7 +142,7 @@ def test_motyw_jest_zapamietany(okno):
 def test_pulpit_pokazuje_liczby(pelne):
     kafelek = pelne.widok().kafelki[0]
     assert kafelek._wartosc.cget("text").endswith("zł")
-    assert pelne.widok().tabela.liczba() == 6
+    assert pelne.widok().tabela.liczba() == 4
 
 
 def test_dodanie_wydatku_i_ostrzezenie(okno):

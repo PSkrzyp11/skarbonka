@@ -50,9 +50,9 @@ class WidokTransakcje(Widok):
         """Tworzy rząd filtrów."""
         rzad = ctk.CTkFrame(self.tresc, fg_color=styl.PRZEZROCZYSTY)
         rzad.pack(fill="x", pady=(0, 12))
-        self.fraza = self._pole(rzad, "szukaj w opisie", 220)
-        self.od = self._pole(rzad, "od dnia", 110)
-        self.do = self._pole(rzad, "do dnia", 110)
+        self.fraza = self._pole(rzad, "szukaj w opisie", 170)
+        self.od = self._pole(rzad, "od dnia", 95)
+        self.do = self._pole(rzad, "do dnia", 95)
         self.konto = self._lista(rzad)
         self.kategoria = self._lista(rzad)
         przycisk(rzad, "Wyczyść", self.wyczysc_filtry).pack(side="left")
@@ -81,7 +81,7 @@ class WidokTransakcje(Widok):
         lista = ctk.CTkOptionMenu(
             rzad,
             values=[WSZYSTKIE],
-            width=150,
+            width=130,
             height=34,
             font=styl.czcionka(),
             dropdown_font=styl.czcionka(),

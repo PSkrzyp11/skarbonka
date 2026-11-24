@@ -1,8 +1,12 @@
 # Skarbonka
 
-Konsolowy menedżer budżetu domowego. Zapisuje wydatki i przychody, pilnuje budżetów i celów, importuje wyciągi bankowe i prognozuje saldo na koniec miesiąca. Wszystkie dane zostają na komputerze użytkownika.
+Menedżer budżetu domowego z dwoma interfejsami: w oknie i w konsoli. Zapisuje wydatki i przychody, pilnuje budżetów i celów, importuje wyciągi bankowe i prognozuje saldo na koniec miesiąca. Wszystkie dane zostają na komputerze użytkownika.
 
-![Pulpit i menu główne](docs/pulpit.svg)
+![Pulpit w oknie](docs/okno.png)
+
+![Analizy w ciemnym motywie](docs/okno_analizy.png)
+
+![Pulpit i menu w konsoli](docs/pulpit.svg)
 
 ## Najważniejsze funkcje
 
@@ -33,12 +37,29 @@ Na systemach Linux i macOS zamiast `.venv\Scripts\python.exe` należy użyć `.v
 
 ## Uruchomienie
 
+W konsoli:
+
 ```powershell
 .venv\Scripts\python.exe main.py
 ```
 
+W oknie:
+
+```powershell
+.venv\Scripts\python.exe main.py --okno
+```
+
+Jak zwykła aplikacja Windows (skrót na pulpicie i w menu Start oraz polecenia w każdym terminalu):
+
+```powershell
+.venv\Scripts\python.exe instaluj.py
+```
+
+Po instalacji działają polecenia `skarbonka` (okno) i `skarbonka-konsola`. Skróty i polecenia usuwa `instaluj.py --usun`; dane użytkownika zostają. Po przeniesieniu katalogu projektu trzeba uruchomić `instaluj.py` ponownie.
+
 | Opcja | Działanie |
 |---|---|
+| `--okno` | interfejs okienkowy |
 | `--demo` | osobna baza z przykładowymi danymi (`dane/demo`) |
 | `--baza PLIK` | inny plik bazy danych |
 | `--bez-kolorow` | wyłącza kolory |
@@ -51,7 +72,7 @@ Testy:
 .venv\Scripts\python.exe -m pytest
 ```
 
-## Menu
+## Menu w konsoli
 
 | Menu | Opcje |
 |---|---|
@@ -65,10 +86,24 @@ Testy:
 
 Pliki do wypróbowania importu są w katalogu `przyklady`: poprawny `wyciag_demo.csv` i celowo błędny `wyciag_uszkodzony.csv`.
 
+## Okno
+
+| Widok | Co zawiera |
+|---|---|
+| Pulpit | salda, wykres, ostrzeżenia, prognoza, ostatnie transakcje |
+| Transakcje | filtrowanie w trakcie pisania, sortowanie po kolumnach, dodawanie, edycja (także dwuklikiem) i usuwanie |
+| Plan | budżety i cele z paskami postępu, transakcje cykliczne z zaległościami |
+| Analizy | wykresy kategorii, trendu i salda, zapis do PNG, prognoza |
+| Dane | import z podglądem i duplikatami, eksport, raport, kopie zapasowe |
+| Ustawienia | konta, kategorie, reguły, profile CSV, próg ostrzeżeń |
+
+Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
+
 ## Architektura
 
 ```
-main.py                 uruchomienie i argumenty
+main.py                 uruchomienie, argumenty i wybór interfejsu
+instaluj.py             skróty i polecenia Windows
 skarbonka/
   config.py             stałe i ścieżki
   wyjatki.py            własne wyjątki
@@ -76,14 +111,15 @@ skarbonka/
   models/               co przechowujemy: transakcje, konta, kategorie, plany
   services/             logika: salda, filtry, budżety, prognoza, import, raporty
   storage/              baza SQLite, pliki CSV i JSON
-  ui/                   menu, ekrany, wczytywanie i wypisywanie
+  ui/                   interfejs konsolowy: menu, ekrany, wczytywanie
+  gui/                  interfejs okienkowy: widoki, formularze, tabele
   utils/                walidacja, formatowanie, daty, logi
 tests/                  testy pytest
 przyklady/              pliki CSV do importu
 dane/                   baza, kopie, eksporty i logi użytkownika (poza repozytorium)
 ```
 
-Zależności idą w jedną stronę: `ui -> services -> storage`, a z `models` korzystają wszystkie warstwy. Logika nie używa `input()`, dzięki czemu można ją testować bez klawiatury.
+Zależności idą w jedną stronę: `ui` lub `gui -> services -> storage`, a z `models` korzystają wszystkie warstwy. Logika nie używa `input()`, dzięki czemu można ją testować bez klawiatury.
 
 **Przechowywanie danych**
 
@@ -106,7 +142,8 @@ Kwoty są typu `Decimal`, a w bazie są zapisywane w groszach jako liczby całko
 | Biblioteka | Po co |
 |---|---|
 | `rich` | tabele, ramki i kolory w terminalu |
-| `matplotlib` | wykresy zapisywane do PNG |
+| `customtkinter` | nowoczesny wygląd okna opartego na wbudowanym `tkinter` |
+| `matplotlib` | wykresy w oknie i w plikach PNG |
 | `pytest` | testy jednostkowe |
 
 Z biblioteki standardowej między innymi: `sqlite3`, `csv`, `json`, `decimal`, `datetime`, `calendar`, `pathlib`, `logging`, `argparse`, `urllib`, `enum`, `dataclasses`, `abc`, `re`, `random`.
@@ -118,7 +155,7 @@ Z biblioteki standardowej między innymi: `sqlite3`, `csv`, `json`, `decimal`, `
 | 3.0 | dane od użytkownika i ich przetwarzanie | `ui/wejscie.py`, `services/` |
 | 3.5 | menu wyboru przetwarzania danych | `ui/menu.py`, menu Analizy |
 | 4.0 | funkcje wbudowane i własne, listy, słowniki | `services/analizy.py`, `services/transakcje.py` |
-| 4.5 | własne moduły i biblioteka standardowa | pięć pakietów w `skarbonka` |
+| 4.5 | własne moduły i biblioteka standardowa | sześć pakietów w `skarbonka` |
 | 5.0 | zapis i odczyt pliku z menu, obsługa błędów | menu Dane, `storage/`, `wyjatki.py` |
 
 | Element z zajęć | Gdzie w kodzie |
@@ -140,7 +177,7 @@ Z biblioteki standardowej między innymi: `sqlite3`, `csv`, `json`, `decimal`, `
 | funkcje z parametrami i wartościami domyślnymi | `filtruj`, `najwieksze_wydatki`, `parsuj_kwote` |
 | `lambda` | `SORTOWANIA` w `services/transakcje.py`, opcje w `ui/ekran_transakcje.py` |
 | generatory | `terminy` w `models/cykliczna.py`, `strony` w `services/transakcje.py`, `czytaj_wiersze` w `storage/pliki_csv.py` |
-| moduły i pakiety | `models`, `services`, `storage`, `ui`, `utils` |
+| moduły i pakiety | `models`, `services`, `storage`, `ui`, `gui`, `utils` |
 | `try / except / else / finally` | `przygotuj` w `services/importer.py`, `main` w `main.py` |
 | `raise`, własne wyjątki | `utils/walidacja.py`, `wyjatki.py` |
 | klasy, dziedziczenie, `@property`, `@dataclass`, `Enum` | `models/` |
