@@ -5,6 +5,9 @@ from decimal import Decimal
 
 import pytest
 
+from skarbonka.models.cykliczna import Cykliczna
+from skarbonka.models.enums import Czestotliwosc
+from skarbonka.ui.aplikacja import Aplikacja
 from skarbonka.wyjatki import BladPliku
 
 LISTOPAD = date(2026, 11, 1)
@@ -40,3 +43,31 @@ def test_pusty_miesiac(serwisy):
 def test_nie_mozna_zapisac(serwisy, tmp_path):
     with pytest.raises(BladPliku):
         serwisy.raporty.zapisz(LISTOPAD, tmp_path)
+
+
+def test_pulpit(serwisy, capsys):
+    aplikacja = Aplikacja(serwisy)
+    aplikacja.pokaz_pulpit(date(2026, 11, 24))
+    czysty = capsys.readouterr().out
+    assert "4 630,00 zł" in czysty
+    assert "!" not in czysty
+
+    serwisy.budzety.ustaw(1, LISTOPAD, Decimal("50"))
+    serwisy.cele.dodaj("Wakacje", Decimal("1000"), date(2026, 11, 1))
+    serwisy.cykliczne.dodaj(
+        Cykliczna(
+            "Czynsz",
+            "wydatek",
+            Decimal("1"),
+            1,
+            2,
+            date(2026, 11, 1),
+            Czestotliwosc.TYDZIEN,
+        ),
+        date(2026, 11, 24),
+    )
+    aplikacja.pokaz_pulpit(date(2026, 11, 24))
+    wyjscie = capsys.readouterr().out
+    assert "Budżet Jedzenie: przekroczony, wykorzystano 200,0%." in wyjscie
+    assert "Zaległe transakcje cykliczne: 4" in wyjscie
+    assert "Minął termin celu Wakacje." in wyjscie
