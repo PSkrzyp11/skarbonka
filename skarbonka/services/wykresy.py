@@ -1,7 +1,7 @@
 """Wykresy zapisywane do plików PNG.
 
-Biblioteka matplotlib ładuje się długo, dlatego jest importowana dopiero przy
-pierwszym wykresie.
+Biblioteka matplotlib wydłuża start programu, a bywa potrzebna rzadko. Dlatego
+jest importowana dopiero przy pierwszym wykresie.
 """
 
 import logging
