@@ -53,7 +53,9 @@ class Menu:
                 klucz = wczytaj_wybor("Wybór", dozwolone)
                 if klucz == KLUCZ_POWROTU:
                     break
-                self.opcje[klucz].akcja()
+                opcja = self.opcje[klucz]
+                logger.debug("Menu %s: wybrano %s", self.tytul, opcja.etykieta)
+                opcja.akcja()
             except AnulowanoOperacje as blad:
                 widoki.blad(str(blad))
             except BladSkarbonki as blad:
