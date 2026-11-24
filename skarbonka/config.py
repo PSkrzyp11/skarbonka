@@ -6,6 +6,7 @@ NAZWA_APLIKACJI = "Skarbonka"
 
 KATALOG_PROJEKTU = Path(__file__).resolve().parent.parent
 KATALOG_DANYCH = KATALOG_PROJEKTU / "dane"
+PLIK_BAZY = KATALOG_DANYCH / "skarbonka.db"
 PLIK_LOGU = KATALOG_DANYCH / "logi" / "skarbonka.log"
 
 SLOWO_ANULUJ = "anuluj"

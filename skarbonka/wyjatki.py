@@ -29,5 +29,13 @@ class RekordWUzyciu(BladSkarbonki):
     """Rekordu nie można usunąć, bo coś z niego korzysta."""
 
 
+class BladBazy(BladSkarbonki):
+    """Operacja na bazie danych się nie powiodła."""
+
+
+class UszkodzonaBaza(BladBazy):
+    """Plik bazy istnieje, ale nie da się go odczytać."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""
