@@ -5,7 +5,13 @@ from skarbonka.models.transakcja import Przychod, Wydatek
 from skarbonka.ui import widoki
 from skarbonka.ui.ekran_profile import EkranProfili
 from skarbonka.ui.menu import Ekran, OpcjaMenu
-from skarbonka.ui.wejscie import potwierdz, wczytaj_nazwe, wczytaj_saldo, wybierz
+from skarbonka.ui.wejscie import (
+    potwierdz,
+    wczytaj_liczbe,
+    wczytaj_nazwe,
+    wczytaj_saldo,
+    wybierz,
+)
 
 
 class EkranKont(Ekran):
@@ -83,4 +89,14 @@ class EkranUstawien(Ekran):
             OpcjaMenu("Konta", EkranKont(self.serwisy).uruchom),
             OpcjaMenu("Kategorie", EkranKategorii(self.serwisy).uruchom),
             OpcjaMenu("Profile CSV banków", EkranProfili(self.serwisy).uruchom),
+            OpcjaMenu("Próg ostrzeżeń budżetu", self.zmien_prog),
         ]
+
+    def zmien_prog(self) -> None:
+        """Zmienia procent budżetu, od którego pojawia się ostrzeżenie."""
+        ustawienia = self.serwisy.ustawienia.wczytaj()
+        ustawienia.prog_ostrzezen = wczytaj_liczbe(
+            "Próg w procentach", maks=100, domyslna=ustawienia.prog_ostrzezen, minimum=1
+        )
+        self.serwisy.ustawienia.zapisz(ustawienia)
+        widoki.sukces(f"Próg ostrzeżeń: {ustawienia.prog_ostrzezen}%")

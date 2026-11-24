@@ -59,7 +59,7 @@ def baza():
 
 
 @pytest.fixture
-def serwisy(baza, konta, kategorie, transakcje) -> Serwisy:
+def serwisy(baza, konta, kategorie, transakcje, tmp_path) -> Serwisy:
     """Serwisy działające na przykładowych danych."""
     for repozytorium, rekordy in (
         (RepozytoriumKont(baza), konta),
@@ -68,7 +68,7 @@ def serwisy(baza, konta, kategorie, transakcje) -> Serwisy:
     ):
         for rekord in rekordy:
             repozytorium.dodaj(rekord)
-    return utworz_serwisy(baza)
+    return utworz_serwisy(baza, tmp_path)
 
 
 @pytest.fixture

@@ -3,7 +3,6 @@
 from datetime import datetime
 from pathlib import Path
 
-from skarbonka.config import KATALOG_EKSPORTU
 from skarbonka.models.transakcja import Transakcja
 from skarbonka.services.transakcje import posortuj
 from skarbonka.ui import widoki
@@ -93,7 +92,7 @@ class EkranDanych(Ekran):
             print("Brak transakcji do eksportu.")
             return
         nazwa = f"transakcje-{datetime.now():%Y%m%d-%H%M%S}.csv"
-        sciezka = wczytaj_sciezke("Plik docelowy", KATALOG_EKSPORTU / nazwa)
+        sciezka = wczytaj_sciezke("Plik docelowy", self.serwisy.katalog / "eksport" / nazwa)
         if self._mozna_zapisac(sciezka):
             self.serwisy.eksporter.zapisz(transakcje, sciezka)
             widoki.sukces(f"Zapisano {len(transakcje)} transakcji: {sciezka}")

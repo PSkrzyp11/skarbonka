@@ -24,6 +24,7 @@ from skarbonka.ui.wejscie import (
     wybierz,
     wybierz_lub_wszystkie,
 )
+from skarbonka.utils.formatowanie import formatuj_procent
 from skarbonka.wyjatki import NieZnalezionoRekordu
 
 
@@ -120,6 +121,11 @@ class EkranTransakcji(Ekran):
         """Dodaje transakcję i potwierdza to na ekranie."""
         self.serwisy.transakcje.dodaj(transakcja)
         widoki.sukces(f"Dodano: {transakcja}")
+        for w in self.serwisy.budzety.ostrzezenia(transakcja.data):
+            if w.budzet.kategoria_id == transakcja.kategoria_id:
+                widoki.ostrzezenie(
+                    f"Budżet {w.kategoria}: {w.stan}, wykorzystano {formatuj_procent(w.procent)}."
+                )
 
     def _wskaz(self) -> Transakcja:
         """Pokazuje ostatnie transakcje i zwraca tę o wpisanym numerze."""

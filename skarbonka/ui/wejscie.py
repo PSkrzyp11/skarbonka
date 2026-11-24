@@ -137,11 +137,11 @@ def wczytaj_numer(komunikat: str) -> int:
     return wczytaj(komunikat, parsuj_numer)
 
 
-def wczytaj_liczbe(komunikat: str, maks: int, domyslna: int) -> int:
-    """Wczytuje liczbę całkowitą od zera do podanego maksimum."""
+def wczytaj_liczbe(komunikat: str, maks: int, domyslna: int, minimum: int = 0) -> int:
+    """Wczytuje liczbę całkowitą z podanego zakresu."""
     return wczytaj(
         _z_podpowiedzia(komunikat, str(domyslna)),
-        lambda tekst: parsuj_liczbe(tekst, maks),
+        lambda tekst: parsuj_liczbe(tekst, maks, minimum),
         domyslna,
     )
 

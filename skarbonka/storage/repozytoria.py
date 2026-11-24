@@ -12,7 +12,7 @@ from skarbonka.models.importy import Import
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.storage.baza import Baza
-from skarbonka.wyjatki import BladBazy, BladWalidacji, NieZnalezionoRekordu
+from skarbonka.wyjatki import BladBazy, BladWalidacji, NieZnalezionoRekordu, RekordWUzyciu
 
 T = TypeVar("T")
 
@@ -78,7 +78,14 @@ class Repozytorium(ABC, Generic[T]):
 
     def usun(self, numer: int) -> None:
         """Usuwa obiekt o podanym numerze."""
-        kursor = self._baza.wykonaj(f"DELETE FROM {self.TABELA} WHERE id = ?", (numer,))
+        try:
+            kursor = self._baza.wykonaj(f"DELETE FROM {self.TABELA} WHERE id = ?", (numer,))
+        except BladBazy as blad:
+            if isinstance(blad.__cause__, sqlite3.IntegrityError):
+                raise RekordWUzyciu(
+                    "Nie można usunąć pozycji, bo korzystają z niej inne dane."
+                ) from blad
+            raise
         self._sprawdz_trafienie(kursor, numer)
 
     def _wczytaj(self, wiersz: sqlite3.Row) -> T:

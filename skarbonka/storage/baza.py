@@ -16,7 +16,7 @@ from skarbonka.wyjatki import BladBazy, UszkodzonaBaza
 
 W_PAMIECI = ":memory:"
 
-TABELE = ("konta", "kategorie", "importy", "transakcje")
+TABELE = ("konta", "kategorie", "importy", "transakcje", "budzety")
 
 SCHEMAT = """
 CREATE TABLE IF NOT EXISTS konta (
@@ -45,6 +45,13 @@ CREATE TABLE IF NOT EXISTS transakcje (
     konto_docelowe_id INTEGER REFERENCES konta(id),
     kategoria_id INTEGER REFERENCES kategorie(id),
     import_id INTEGER REFERENCES importy(id)
+);
+CREATE TABLE IF NOT EXISTS budzety (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kategoria_id INTEGER NOT NULL REFERENCES kategorie(id),
+    miesiac TEXT NOT NULL,
+    grosze INTEGER NOT NULL CHECK (grosze > 0),
+    UNIQUE (kategoria_id, miesiac)
 );
 CREATE INDEX IF NOT EXISTS transakcje_data ON transakcje(data);
 """

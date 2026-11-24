@@ -3,15 +3,17 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from skarbonka.config import KATEGORIE_PRZYCHODOW, KATEGORIE_WYDATKOW, PLIK_PROFILI
+from skarbonka.config import KATEGORIE_PRZYCHODOW, KATEGORIE_WYDATKOW
 from skarbonka.models.enums import TypKonta
 from skarbonka.services.eksport import Eksporter
 from skarbonka.services.importer import Importer
 from skarbonka.services.kategorie import SerwisKategorii
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.kopie import SerwisKopii
+from skarbonka.services.planowanie import SerwisBudzetow
 from skarbonka.services.profile import SerwisProfili
 from skarbonka.services.transakcje import SerwisTransakcji
+from skarbonka.services.ustawienia import SerwisUstawien
 from skarbonka.storage.baza import Baza
 from skarbonka.storage.repozytoria import (
     RepozytoriumImportow,
@@ -19,39 +21,54 @@ from skarbonka.storage.repozytoria import (
     RepozytoriumKont,
     RepozytoriumTransakcji,
 )
+from skarbonka.storage.repozytoria_planu import RepozytoriumBudzetow
 
 
 @dataclass
 class Serwisy:
     """Wszystkie serwisy, z których korzystają ekrany."""
 
+    katalog: Path
     transakcje: SerwisTransakcji
     konta: SerwisKont
     kategorie: SerwisKategorii
+    budzety: SerwisBudzetow
     eksporter: Eksporter
     importer: Importer
-    profile: SerwisProfili
     kopie: SerwisKopii
+    profile: SerwisProfili
+    ustawienia: SerwisUstawien
 
 
-def utworz_serwisy(baza: Baza, plik_profili: Path = PLIK_PROFILI) -> Serwisy:
-    """Tworzy serwisy korzystające ze wspólnej bazy."""
+def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
+    """Tworzy serwisy korzystające ze wspólnej bazy.
+
+    Pliki pomocnicze leżą w podanym katalogu, domyślnie obok bazy.
+    """
+    katalog = katalog or Path(baza.sciezka).parent
+
     repo_transakcji = RepozytoriumTransakcji(baza)
     repo_kont = RepozytoriumKont(baza)
     repo_kategorii = RepozytoriumKategorii(baza)
     repo_importow = RepozytoriumImportow(baza)
+    repo_budzetow = RepozytoriumBudzetow(baza)
+    repozytoria = [repo_transakcji, repo_kont, repo_kategorii, repo_importow, repo_budzetow]
+
+    ustawienia = SerwisUstawien(katalog / "ustawienia.json")
+    transakcje = SerwisTransakcji(repo_transakcji)
     konta = SerwisKont(repo_kont, repo_transakcji)
     kategorie = SerwisKategorii(repo_kategorii, repo_transakcji)
     return Serwisy(
-        transakcje=SerwisTransakcji(repo_transakcji),
+        katalog=katalog,
+        transakcje=transakcje,
         konta=konta,
         kategorie=kategorie,
+        budzety=SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia),
         eksporter=Eksporter(konta, kategorie),
         importer=Importer(baza, repo_transakcji, repo_importow, kategorie),
-        profile=SerwisProfili(plik_profili),
-        kopie=SerwisKopii(
-            baza, [repo_kont, repo_kategorii, repo_importow, repo_transakcji]
-        ),
+        kopie=SerwisKopii(baza, repozytoria),
+        profile=SerwisProfili(katalog / "profile_csv.json"),
+        ustawienia=ustawienia,
     )
 
 

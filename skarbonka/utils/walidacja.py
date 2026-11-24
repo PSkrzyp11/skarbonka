@@ -128,11 +128,11 @@ def parsuj_numer(tekst: str) -> int:
     return int(czysty)
 
 
-def parsuj_liczbe(tekst: str, maks: int) -> int:
-    """Zamienia tekst na liczbę całkowitą od zera do podanego maksimum."""
+def parsuj_liczbe(tekst: str, maks: int, minimum: int = 0) -> int:
+    """Zamienia tekst na liczbę całkowitą z podanego zakresu."""
     czysty = tekst.strip()
-    if not czysty.isdecimal() or len(czysty) > 9 or int(czysty) > maks:
-        raise BladWalidacji(f"Wpisz liczbę całkowitą od 0 do {maks}.")
+    if not czysty.isdecimal() or len(czysty) > 9 or not minimum <= int(czysty) <= maks:
+        raise BladWalidacji(f"Wpisz liczbę całkowitą od {minimum} do {maks}.")
     return int(czysty)
 
 

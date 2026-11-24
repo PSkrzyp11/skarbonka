@@ -7,8 +7,6 @@ NAZWA_APLIKACJI = "Skarbonka"
 KATALOG_PROJEKTU = Path(__file__).resolve().parent.parent
 KATALOG_DANYCH = KATALOG_PROJEKTU / "dane"
 PLIK_BAZY = KATALOG_DANYCH / "skarbonka.db"
-KATALOG_EKSPORTU = KATALOG_DANYCH / "eksport"
-PLIK_PROFILI = KATALOG_DANYCH / "profile_csv.json"
 PLIK_LOGU = KATALOG_DANYCH / "logi" / "skarbonka.log"
 
 SLOWO_ANULUJ = "anuluj"

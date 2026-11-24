@@ -14,8 +14,10 @@ from rich.table import Table
 from rich.text import Text
 
 from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
+from skarbonka.models.enums import StanBudzetu
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Transakcja
+from skarbonka.services.planowanie import WykonanieBudzetu
 from skarbonka.utils.formatowanie import (
     formatuj_date,
     formatuj_kwote,
@@ -24,6 +26,12 @@ from skarbonka.utils.formatowanie import (
 )
 
 KOLORY_RODZAJOW = {"wydatek": "red", "przychód": "green", "przelew": "cyan"}
+
+KOLORY_BUDZETU = {
+    StanBudzetu.W_NORMIE: "green",
+    StanBudzetu.UWAGA: "yellow",
+    StanBudzetu.PRZEKROCZONY: "red",
+}
 
 konsola = Console(highlight=False)
 
@@ -56,6 +64,11 @@ def sukces(tekst: str) -> None:
     konsola.print(Text(f"  {tekst}", style="green"), soft_wrap=True)
 
 
+def ostrzezenie(tekst: str) -> None:
+    """Wypisuje ostrzeżenie."""
+    konsola.print(Text(f"  ! {tekst}", style="yellow"), soft_wrap=True)
+
+
 def blad(tekst: str) -> None:
     """Wypisuje komunikat o błędzie."""
     konsola.print(Text(f"  ! {tekst}", style="red"), soft_wrap=True)
@@ -67,6 +80,14 @@ def _tabela(*kolumny: tuple[str, str]) -> Table:
     for nazwa, wyrownanie in kolumny:
         tabela.add_column(nazwa, justify=wyrownanie, no_wrap=wyrownanie == "right")
     return tabela
+
+
+def _pasek(procent: float, kolor: str, dlugosc: int = 20) -> Text:
+    """Zwraca poziomy pasek: 100 procent to pełna długość."""
+    pelne = round(procent / 100 * dlugosc)
+    if procent > 0:
+        pelne = max(1, pelne)
+    return Text("█" * pelne, kolor)
 
 
 def _kwota(kwota: Decimal) -> Text:
@@ -128,9 +149,32 @@ def pokaz_udzialy(kwoty: dict[str, Decimal], procenty: dict[str, float]) -> None
     """Wypisuje kategorie z kwotą, procentem i paskiem."""
     tabela = _tabela(("Kategoria", "left"), ("Kwota", "right"), ("Udział", "right"), ("", "left"))
     for nazwa, kwota in kwoty.items():
-        pasek = "█" * max(1, round(procenty[nazwa] / 5))
+        procent = procenty[nazwa]
         tabela.add_row(
-            Text(nazwa), _kwota(kwota), formatuj_procent(procenty[nazwa]), Text(pasek, "yellow")
+            Text(nazwa), _kwota(kwota), formatuj_procent(procent), _pasek(procent, "yellow")
+        )
+    konsola.print(tabela)
+
+
+def pokaz_budzety(wykonanie: list[WykonanieBudzetu]) -> None:
+    """Wypisuje limity, wydatki i paski wykorzystania."""
+    tabela = _tabela(
+        ("Kategoria", "left"),
+        ("Wydano", "right"),
+        ("Limit", "right"),
+        ("%", "right"),
+        ("", "left"),
+        ("Stan", "left"),
+    )
+    for w in wykonanie:
+        kolor = KOLORY_BUDZETU[w.stan]
+        tabela.add_row(
+            Text(w.kategoria),
+            _kwota(w.wydano),
+            _kwota(w.budzet.limit),
+            formatuj_procent(w.procent),
+            _pasek(min(w.procent, 100), kolor, dlugosc=12),
+            Text(str(w.stan), kolor),
         )
     konsola.print(tabela)
 
