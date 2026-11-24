@@ -1,5 +1,6 @@
 """Główna klasa interfejsu: stan aplikacji i drzewo menu."""
 
+from dataclasses import replace
 from decimal import Decimal
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY, NAZWA_APLIKACJI, SLOWO_ANULUJ
@@ -53,6 +54,7 @@ class Aplikacja:
                 OpcjaMenu("Dodaj przychód", lambda: self.dodaj(Przychod)),
                 OpcjaMenu("Przelew między kontami", self.dodaj_przelew),
                 OpcjaMenu("Lista transakcji", self.pokaz_liste),
+                OpcjaMenu("Edytuj transakcję", self.edytuj),
                 OpcjaMenu("Usuń transakcję", self.usun),
             ],
         )
@@ -140,6 +142,27 @@ class Aplikacja:
             kategoria = nazwy_kategorii.get(transakcja.kategoria_id, "-")
             print(f"{transakcja}  [{konto} | {kategoria}]")
         print(f"Razem: {len(self.transakcje)}")
+
+    def edytuj(self) -> None:
+        """Zmienia wybraną transakcję. Enter zostawia dotychczasową wartość."""
+        self.pokaz_liste()
+        if not self.transakcje:
+            return
+        stara = rekordy.znajdz(self.transakcje, wczytaj_numer("Numer transakcji"))
+        zmiany = {
+            "kwota": wczytaj_kwote(domyslna=stara.kwota),
+            "data": wczytaj_date(domyslna=stara.data),
+            "opis": wczytaj_tekst("Opis", domyslna=stara.opis),
+        }
+        pasujace = serwis_kategorii.pasujace(self.kategorie, type(stara))
+        if pasujace:
+            obecna = rekordy.znajdz(self.kategorie, stara.kategoria_id)
+            zmiany["kategoria_id"] = wybierz("Kategoria", pasujace, obecna).id
+            obecne = rekordy.znajdz(self.konta, stara.konto_id)
+            zmiany["konto_id"] = wybierz("Konto", self.konta, obecne).id
+        nowa = replace(stara, **zmiany)
+        rekordy.zmien(self.transakcje, nowa)
+        print(f"  Zmieniono: {nowa}")
 
     def usun(self) -> None:
         """Usuwa wybraną transakcję po potwierdzeniu."""

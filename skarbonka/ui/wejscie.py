@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from skarbonka.config import MAKS_DLUGOSC_OPISU, SLOWO_ANULUJ
+from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.utils.walidacja import (
     parsuj_date,
     parsuj_kwote,
@@ -39,9 +40,15 @@ def wczytaj(komunikat: str, parser: Callable[[str], Any], domyslna: Any = None) 
             print(f"  ! {blad}")
 
 
-def wczytaj_kwote(komunikat: str = "Kwota") -> Decimal:
+def _z_podpowiedzia(komunikat: str, podpowiedz: str) -> str:
+    """Dopisuje do komunikatu wartość, którą wstawi sam Enter."""
+    return f"{komunikat} [{podpowiedz}]" if podpowiedz else komunikat
+
+
+def wczytaj_kwote(komunikat: str = "Kwota", domyslna: Decimal | None = None) -> Decimal:
     """Wczytuje dodatnią kwotę."""
-    return wczytaj(komunikat, parsuj_kwote)
+    podpowiedz = formatuj_kwote(domyslna) if domyslna is not None else ""
+    return wczytaj(_z_podpowiedzia(komunikat, podpowiedz), parsuj_kwote, domyslna)
 
 
 def wczytaj_saldo(komunikat: str = "Saldo początkowe") -> Decimal:
@@ -53,13 +60,14 @@ def wczytaj_saldo(komunikat: str = "Saldo początkowe") -> Decimal:
     )
 
 
-def wczytaj_date(komunikat: str = "Data") -> date:
-    """Wczytuje datę nie późniejszą niż dzisiejsza (Enter = dziś)."""
+def wczytaj_date(komunikat: str = "Data", domyslna: date | None = None) -> date:
+    """Wczytuje datę nie późniejszą niż dzisiejsza (Enter = domyślna albo dziś)."""
     dzis = date.today()
+    domyslna = domyslna or dzis
     return wczytaj(
-        f"{komunikat} [{dzis:%d.%m.%Y}]",
+        _z_podpowiedzia(komunikat, formatuj_date(domyslna)),
         lambda tekst: parsuj_date(tekst, najpozniej=dzis),
-        domyslna=dzis,
+        domyslna,
     )
 
 
@@ -69,9 +77,15 @@ def wczytaj_miesiac(komunikat: str = "Miesiąc") -> date:
     return wczytaj(f"{komunikat} [{biezacy:%m.%Y}]", parsuj_miesiac, domyslna=biezacy)
 
 
-def wczytaj_tekst(komunikat: str, maks: int = MAKS_DLUGOSC_OPISU) -> str:
+def wczytaj_tekst(
+    komunikat: str, maks: int = MAKS_DLUGOSC_OPISU, domyslna: str | None = None
+) -> str:
     """Wczytuje niepusty tekst."""
-    return wczytaj(komunikat, lambda tekst: sprawdz_tekst(tekst, komunikat, maks))
+    return wczytaj(
+        _z_podpowiedzia(komunikat, domyslna or ""),
+        lambda tekst: sprawdz_tekst(tekst, komunikat, maks),
+        domyslna,
+    )
 
 
 def wczytaj_numer(komunikat: str) -> int:
@@ -79,12 +93,18 @@ def wczytaj_numer(komunikat: str) -> int:
     return wczytaj(komunikat, parsuj_numer)
 
 
-def wczytaj_wybor(komunikat: str, dozwolone: tuple[str, ...]) -> str:
+def wczytaj_wybor(
+    komunikat: str, dozwolone: tuple[str, ...], domyslna: str | None = None
+) -> str:
     """Wczytuje jedną z dozwolonych opcji."""
-    return wczytaj(komunikat, lambda tekst: parsuj_wybor(tekst, dozwolone))
+    return wczytaj(
+        _z_podpowiedzia(komunikat, domyslna or ""),
+        lambda tekst: parsuj_wybor(tekst, dozwolone),
+        domyslna,
+    )
 
 
-def wybierz(komunikat: str, elementy: list[Any]) -> Any:
+def wybierz(komunikat: str, elementy: list[Any], domyslny: Any = None) -> Any:
     """Wypisuje numerowaną listę i zwraca wybrany element.
 
     Gdy element jest tylko jeden, wybiera go bez pytania.
@@ -97,7 +117,8 @@ def wybierz(komunikat: str, elementy: list[Any]) -> Any:
     for numer, element in enumerate(elementy, start=1):
         print(f"  {numer}) {element}")
     numery = tuple(str(numer) for numer in range(1, len(elementy) + 1))
-    return elementy[int(wczytaj_wybor(komunikat, numery)) - 1]
+    numer_domyslny = str(elementy.index(domyslny) + 1) if domyslny in elementy else None
+    return elementy[int(wczytaj_wybor(komunikat, numery, numer_domyslny)) - 1]
 
 
 def potwierdz(pytanie: str) -> bool:

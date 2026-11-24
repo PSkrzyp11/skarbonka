@@ -19,6 +19,12 @@ def znajdz(rekordy: list[Any], numer: int) -> Any:
     raise NieZnalezionoRekordu(f"Nie ma pozycji o numerze {numer}.")
 
 
+def zmien(rekordy: list[Any], zmieniony: Any) -> None:
+    """Zastępuje obiekt nową wersją o tym samym numerze."""
+    miejsce = rekordy.index(znajdz(rekordy, zmieniony.id))
+    rekordy[miejsce] = zmieniony
+
+
 def usun(rekordy: list[Any], numer: int) -> None:
     """Usuwa obiekt o podanym numerze."""
     rekordy.remove(znajdz(rekordy, numer))
