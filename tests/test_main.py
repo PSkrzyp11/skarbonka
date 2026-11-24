@@ -1,8 +1,10 @@
 """Testy opcji uruchomienia."""
 
+import sys
+
 import pytest
 
-from main import main, wczytaj_argumenty
+from main import Interfejs, main, wczytaj_argumenty
 
 
 def test_wartosci_domyslne():
@@ -56,6 +58,29 @@ def test_nie_da_sie_otworzyc_bazy(tmp_path, monkeypatch, capsys):
     wyjscie = capsys.readouterr().out
     assert "bez logowania" in wyjscie
     assert "Nie można otworzyć bazy" in wyjscie
+
+
+def test_okno_dostaje_gotowe_serwisy(tmp_path, monkeypatch):
+    okno = pytest.importorskip("skarbonka.gui.okno")
+    monkeypatch.setattr("main.skonfiguruj_logi", lambda **opcje: True)
+    konta = []
+    monkeypatch.setattr(okno, "uruchom_okno", lambda s: konta.extend(s.konta.wszystkie()))
+    assert main(["--okno", "--baza", str(tmp_path / "test.db")]) == 0
+    assert [konto.nazwa for konto in konta] == ["Portfel"]
+
+
+def test_brak_biblioteki_okna(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("main.skonfiguruj_logi", lambda **opcje: True)
+    monkeypatch.setitem(sys.modules, "skarbonka.gui.okno", None)
+    assert main(["--okno", "--baza", str(tmp_path / "test.db")]) == 1
+    assert "customtkinter" in capsys.readouterr().out
+
+
+def test_start_bez_konsoli(argumenty, monkeypatch):
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    monkeypatch.setattr("main.wybierz_interfejs", lambda okno: Interfejs(print, bool, print))
+    assert main(argumenty) == 0
 
 
 @pytest.fixture
