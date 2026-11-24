@@ -1,6 +1,7 @@
-"""Opis układu pliku CSV z banku."""
+"""Import pliku CSV: opis układu pliku i ślad po imporcie."""
 
 from dataclasses import dataclass, fields
+from datetime import datetime
 
 
 @dataclass
@@ -30,3 +31,12 @@ class ProfilCSV:
 
     def __str__(self) -> str:
         return self.nazwa
+
+
+@dataclass
+class Import:
+    """Informacja o wykonanym imporcie, potrzebna do jego cofnięcia."""
+
+    plik: str
+    utworzono: datetime
+    id: int | None = None

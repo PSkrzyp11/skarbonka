@@ -29,6 +29,7 @@ class Transakcja(ABC):
     konto_id: int
     kategoria_id: int | None = None
     id: int | None = None
+    import_id: int | None = None
 
     def __post_init__(self) -> None:
         """Pilnuje poprawności kwoty niezależnie od tego, kto tworzy obiekt."""
@@ -39,6 +40,11 @@ class Transakcja(ABC):
     @abstractmethod
     def wplyw(self) -> Decimal:
         """Zmiana łącznego stanu pieniędzy na wszystkich kontach."""
+
+    @property
+    def odcisk(self) -> tuple[date, Decimal, str, int]:
+        """Cechy, po których poznaje się tę samą operację w dwóch wyciągach."""
+        return (self.data, self.wplyw, self.opis.casefold(), self.konto_id)
 
     def wplyw_na_konto(self, konto_id: int) -> Decimal:
         """Zmiana salda jednego, wybranego konta."""

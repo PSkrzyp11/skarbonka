@@ -13,6 +13,7 @@ from skarbonka.services.profile import SerwisProfili
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.storage.baza import Baza
 from skarbonka.storage.repozytoria import (
+    RepozytoriumImportow,
     RepozytoriumKategorii,
     RepozytoriumKont,
     RepozytoriumTransakcji,
@@ -41,7 +42,7 @@ def utworz_serwisy(baza: Baza, plik_profili: Path = PLIK_PROFILI) -> Serwisy:
         konta=konta,
         kategorie=kategorie,
         eksporter=Eksporter(konta, kategorie),
-        importer=Importer(baza, transakcje, kategorie),
+        importer=Importer(baza, transakcje, RepozytoriumImportow(baza), kategorie),
         profile=SerwisProfili(plik_profili),
     )
 

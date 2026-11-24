@@ -2,12 +2,13 @@
 
 import sqlite3
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, ClassVar, Generic, TypeVar
 
 from skarbonka.models.enums import TypKonta
 from skarbonka.models.kategoria import Kategoria
+from skarbonka.models.importy import Import
 from skarbonka.models.konto import Konto
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.storage.baza import Baza
@@ -142,6 +143,7 @@ class RepozytoriumTransakcji(Repozytorium[Transakcja]):
             "konto_id": rekord.konto_id,
             "konto_docelowe_id": getattr(rekord, "konto_docelowe_id", None),
             "kategoria_id": rekord.kategoria_id,
+            "import_id": rekord.import_id,
         }
 
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Transakcja:
@@ -153,7 +155,25 @@ class RepozytoriumTransakcji(Repozytorium[Transakcja]):
             "konto_id": wiersz["konto_id"],
             "kategoria_id": wiersz["kategoria_id"],
             "id": wiersz["id"],
+            "import_id": wiersz["import_id"],
         }
         if klasa is Przelew:
             pola["konto_docelowe_id"] = wiersz["konto_docelowe_id"]
         return klasa(**pola)
+
+    def usun_z_importu(self, import_id: int) -> int:
+        """Usuwa transakcje z jednego importu i zwraca ich liczbę."""
+        sql = f"DELETE FROM {self.TABELA} WHERE import_id = ?"
+        return self._baza.wykonaj(sql, (import_id,)).rowcount
+
+
+class RepozytoriumImportow(Repozytorium[Import]):
+    """Tabela wykonanych importów."""
+
+    TABELA = "importy"
+
+    def _na_wiersz(self, rekord: Import) -> dict[str, Any]:
+        return {"plik": rekord.plik, "utworzono": rekord.utworzono.isoformat(timespec="seconds")}
+
+    def _z_wiersza(self, wiersz: sqlite3.Row) -> Import:
+        return Import(wiersz["plik"], datetime.fromisoformat(wiersz["utworzono"]), wiersz["id"])

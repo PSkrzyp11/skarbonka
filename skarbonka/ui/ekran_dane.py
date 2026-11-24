@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from skarbonka.config import KATALOG_EKSPORTU
+from skarbonka.models.transakcja import Transakcja
 from skarbonka.services.transakcje import posortuj
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
@@ -20,6 +21,7 @@ class EkranDanych(Ekran):
     def opcje(self) -> list[OpcjaMenu]:
         return [
             OpcjaMenu("Import wyciągu CSV", self.importuj),
+            OpcjaMenu("Cofnij ostatni import", self.cofnij_import),
             OpcjaMenu("Eksport transakcji do CSV", self.eksportuj),
         ]
 
@@ -30,18 +32,39 @@ class EkranDanych(Ekran):
         konto = wybierz("Konto", self.serwisy.konta.wszystkie())
         podglad = self.serwisy.importer.przygotuj(sciezka, profil, konto.id)
         widoki.pokaz_bledy(podglad.bledy)
-        print(f"Poprawne: {len(podglad.nowe)}, błędne: {len(podglad.bledy)}")
-        if not podglad.nowe:
+        print(
+            f"Nowe: {len(podglad.nowe)}, duplikaty: {len(podglad.duplikaty)}, "
+            f"błędne: {len(podglad.bledy)}"
+        )
+        do_zapisu = podglad.nowe
+        if podglad.duplikaty:
+            self._pokaz_poczatek("Te operacje są już w bazie:", podglad.duplikaty)
+            if potwierdz("Zaimportować je mimo to?"):
+                do_zapisu = podglad.nowe + podglad.duplikaty
+        if not do_zapisu:
+            print("Nie ma czego importować.")
             return
-        print("Początek pliku:")
+        self._pokaz_poczatek("Początek listy do importu:", do_zapisu)
+        if potwierdz(f"Zaimportować {len(do_zapisu)} transakcji?"):
+            self.serwisy.importer.zapisz(podglad.plik, do_zapisu)
+            widoki.sukces(f"Zaimportowano {len(do_zapisu)} transakcji.")
+
+    def cofnij_import(self) -> None:
+        """Usuwa transakcje z ostatniego importu po potwierdzeniu."""
+        ostatni = self.serwisy.importer.ostatni()
+        print(f"Ostatni import: {ostatni.plik}, {ostatni.utworzono:%d.%m.%Y %H:%M}")
+        if potwierdz("Usunąć wszystkie transakcje z tego importu?"):
+            liczba = self.serwisy.importer.cofnij(ostatni)
+            widoki.sukces(f"Usunięto {liczba} transakcji.")
+
+    def _pokaz_poczatek(self, tytul: str, transakcje: list[Transakcja]) -> None:
+        """Wypisuje kilka pierwszych transakcji z listy."""
+        print(tytul)
         widoki.pokaz_transakcje(
-            podglad.nowe[:LICZBA_W_PODGLADZIE],
+            transakcje[:LICZBA_W_PODGLADZIE],
             self.serwisy.konta.nazwy(),
             self.serwisy.kategorie.nazwy(),
         )
-        if potwierdz(f"Zaimportować {len(podglad.nowe)} transakcji?"):
-            liczba = self.serwisy.importer.zapisz(podglad.nowe)
-            widoki.sukces(f"Zaimportowano {liczba} transakcji.")
 
     def eksportuj(self) -> None:
         """Zapisuje wszystkie transakcje do wybranego pliku."""
