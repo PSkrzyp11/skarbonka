@@ -16,12 +16,15 @@ from skarbonka.ui.menu import Menu, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
     wczytaj_date,
+    wczytaj_date_opcjonalna,
+    wczytaj_fraze,
     wczytaj_kwote,
     wczytaj_miesiac,
     wczytaj_numer,
     wczytaj_saldo,
     wczytaj_tekst,
     wybierz,
+    wybierz_lub_wszystkie,
 )
 from skarbonka.utils.formatowanie import formatuj_kwote, formatuj_miesiac, formatuj_procent
 
@@ -54,6 +57,7 @@ class Aplikacja:
                 OpcjaMenu("Dodaj przychód", lambda: self.dodaj(Przychod)),
                 OpcjaMenu("Przelew między kontami", self.dodaj_przelew),
                 OpcjaMenu("Lista transakcji", self.pokaz_liste),
+                OpcjaMenu("Szukaj i filtruj", self.szukaj),
                 OpcjaMenu("Edytuj transakcję", self.edytuj),
                 OpcjaMenu("Usuń transakcję", self.usun),
             ],
@@ -132,16 +136,45 @@ class Aplikacja:
 
     def pokaz_liste(self) -> None:
         """Wypisuje wszystkie transakcje od najnowszej."""
-        if not self.transakcje:
+        self._wypisz(serwis.posortuj(self.transakcje))
+
+    def szukaj(self) -> None:
+        """Wypisuje transakcje spełniające podane warunki wraz z sumami."""
+        od = wczytaj_date_opcjonalna("Od dnia")
+        do = wczytaj_date_opcjonalna("Do dnia")
+        konto = wybierz_lub_wszystkie("Konto", self.konta)
+        kategoria = wybierz_lub_wszystkie("Kategoria", self.kategorie)
+        fraza = wczytaj_fraze("Fragment opisu")
+        sposob = wybierz("Kolejność", list(serwis.SORTOWANIA), "od najnowszych")
+        wybrane = serwis.filtruj(
+            self.transakcje,
+            od,
+            do,
+            konto_id=konto.id if konto else None,
+            kategoria_id=kategoria.id if kategoria else None,
+            fraza=fraza,
+        )
+        self._wypisz(serwis.posortuj(wybrane, sposob))
+        if wybrane:
+            pokaz_kwoty(
+                {
+                    "Przychody": serwis.suma_przychodow(wybrane),
+                    "Wydatki": serwis.suma_wydatkow(wybrane),
+                }
+            )
+
+    def _wypisz(self, transakcje: list[Transakcja]) -> None:
+        """Wypisuje transakcje z nazwami kont i kategorii."""
+        if not transakcje:
             print("Brak transakcji.")
             return
         nazwy_kont = {k.id: k.nazwa for k in self.konta}
         nazwy_kategorii = {k.id: k.nazwa for k in self.kategorie}
-        for transakcja in serwis.od_najnowszych(self.transakcje):
+        for transakcja in transakcje:
             konto = nazwy_kont[transakcja.konto_id]
             kategoria = nazwy_kategorii.get(transakcja.kategoria_id, "-")
             print(f"{transakcja}  [{konto} | {kategoria}]")
-        print(f"Razem: {len(self.transakcje)}")
+        print(f"Razem: {len(transakcje)}")
 
     def edytuj(self) -> None:
         """Zmienia wybraną transakcję. Enter zostawia dotychczasową wartość."""

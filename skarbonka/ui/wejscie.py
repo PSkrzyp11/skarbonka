@@ -71,6 +71,22 @@ def wczytaj_date(komunikat: str = "Data", domyslna: date | None = None) -> date:
     )
 
 
+def wczytaj_date_opcjonalna(komunikat: str) -> date | None:
+    """Wczytuje datę albo None, gdy użytkownik naciśnie sam Enter."""
+    return wczytaj(
+        _z_podpowiedzia(komunikat, "bez limitu"),
+        lambda tekst: parsuj_date(tekst) if tekst.strip() else None,
+    )
+
+
+def wczytaj_fraze(komunikat: str) -> str:
+    """Wczytuje tekst, który może być pusty."""
+    return wczytaj(
+        _z_podpowiedzia(komunikat, "dowolny"),
+        lambda tekst: sprawdz_tekst(tekst, komunikat, puste_ok=True),
+    )
+
+
 def wczytaj_miesiac(komunikat: str = "Miesiąc") -> date:
     """Wczytuje miesiąc (Enter = bieżący)."""
     biezacy = date.today().replace(day=1)
@@ -119,6 +135,15 @@ def wybierz(komunikat: str, elementy: list[Any], domyslny: Any = None) -> Any:
     numery = tuple(str(numer) for numer in range(1, len(elementy) + 1))
     numer_domyslny = str(elementy.index(domyslny) + 1) if domyslny in elementy else None
     return elementy[int(wczytaj_wybor(komunikat, numery, numer_domyslny)) - 1]
+
+
+def wybierz_lub_wszystkie(komunikat: str, elementy: list[Any]) -> Any:
+    """Działa jak wybierz(), ale 0 albo Enter oznacza brak wyboru, czyli None."""
+    for numer, element in enumerate(("wszystkie", *elementy)):
+        print(f"  {numer}) {element}")
+    numery = tuple(str(numer) for numer in range(len(elementy) + 1))
+    wybor = int(wczytaj_wybor(komunikat, numery, domyslna="0"))
+    return None if wybor == 0 else elementy[wybor - 1]
 
 
 def potwierdz(pytanie: str) -> bool:
