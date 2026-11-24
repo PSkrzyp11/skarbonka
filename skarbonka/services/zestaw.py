@@ -5,6 +5,7 @@ from pathlib import Path
 
 from skarbonka.config import KATEGORIE_PRZYCHODOW, KATEGORIE_WYDATKOW
 from skarbonka.models.enums import TypKonta
+from skarbonka.services.cykliczne import SerwisCyklicznych
 from skarbonka.services.eksport import Eksporter
 from skarbonka.services.importer import Importer
 from skarbonka.services.kategorie import SerwisKategorii
@@ -24,6 +25,7 @@ from skarbonka.storage.repozytoria import (
 from skarbonka.storage.repozytoria_planu import (
     RepozytoriumBudzetow,
     RepozytoriumCeli,
+    RepozytoriumCyklicznych,
     RepozytoriumWplat,
 )
 
@@ -38,6 +40,7 @@ class Serwisy:
     kategorie: SerwisKategorii
     budzety: SerwisBudzetow
     cele: SerwisCeli
+    cykliczne: SerwisCyklicznych
     eksporter: Eksporter
     importer: Importer
     kopie: SerwisKopii
@@ -59,6 +62,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     repo_budzetow = RepozytoriumBudzetow(baza)
     repo_celi = RepozytoriumCeli(baza)
     repo_wplat = RepozytoriumWplat(baza)
+    repo_cyklicznych = RepozytoriumCyklicznych(baza)
     repozytoria = [
         repo_transakcji,
         repo_kont,
@@ -67,6 +71,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         repo_budzetow,
         repo_celi,
         repo_wplat,
+        repo_cyklicznych,
     ]
 
     ustawienia = SerwisUstawien(katalog / "ustawienia.json")
@@ -80,6 +85,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         kategorie=kategorie,
         budzety=SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia),
         cele=SerwisCeli(repo_celi, repo_wplat),
+        cykliczne=SerwisCyklicznych(baza, repo_cyklicznych, transakcje),
         eksporter=Eksporter(konta, kategorie),
         importer=Importer(baza, repo_transakcji, repo_importow, kategorie),
         kopie=SerwisKopii(baza, repozytoria),

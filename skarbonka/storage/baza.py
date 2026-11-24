@@ -16,7 +16,7 @@ from skarbonka.wyjatki import BladBazy, UszkodzonaBaza
 
 W_PAMIECI = ":memory:"
 
-TABELE = ("konta", "kategorie", "importy", "transakcje", "budzety", "cele", "wplaty_celu")
+TABELE = ("konta", "kategorie", "importy", "cykliczne", "transakcje", "budzety", "cele", "wplaty_celu")
 
 SCHEMAT = """
 CREATE TABLE IF NOT EXISTS konta (
@@ -34,6 +34,18 @@ CREATE TABLE IF NOT EXISTS importy (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     plik TEXT NOT NULL,
     utworzono TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS cykliczne (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nazwa TEXT NOT NULL UNIQUE,
+    rodzaj TEXT NOT NULL CHECK (rodzaj IN ('wydatek', 'przychód')),
+    grosze INTEGER NOT NULL CHECK (grosze > 0),
+    konto_id INTEGER NOT NULL REFERENCES konta(id),
+    kategoria_id INTEGER NOT NULL REFERENCES kategorie(id),
+    start TEXT NOT NULL,
+    czestotliwosc TEXT NOT NULL,
+    ostatnia TEXT,
+    aktywna INTEGER NOT NULL DEFAULT 1 CHECK (aktywna IN (0, 1))
 );
 CREATE TABLE IF NOT EXISTS transakcje (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,6 +79,10 @@ CREATE TABLE IF NOT EXISTS wplaty_celu (
 );
 CREATE INDEX IF NOT EXISTS transakcje_data ON transakcje(data);
 """
+
+NOWE_KOLUMNY = (
+    ("transakcje", "cykliczna_id", "INTEGER REFERENCES cykliczne(id) ON DELETE SET NULL"),
+)
 
 PLIKI_POMOCNICZE = ("", "-journal", "-wal", "-shm")
 
@@ -111,6 +127,13 @@ class Baza:
             raise sqlite3.DatabaseError(wynik)
         self._polaczenie.execute("PRAGMA foreign_keys = ON")
         self._polaczenie.executescript(SCHEMAT)
+        self._dodaj_nowe_kolumny()
+
+    def _dodaj_nowe_kolumny(self) -> None:
+        """Uzupełnia bazę utworzoną przez starszą wersję aplikacji."""
+        for tabela, kolumna, typ in NOWE_KOLUMNY:
+            if kolumna not in self.kolumny(tabela):
+                self._polaczenie.execute(f"ALTER TABLE {tabela} ADD COLUMN {kolumna} {typ}")
 
     def zamknij(self) -> None:
         """Zamyka połączenie. Można wywołać wielokrotnie."""

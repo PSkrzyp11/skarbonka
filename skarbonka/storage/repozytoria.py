@@ -151,6 +151,7 @@ class RepozytoriumTransakcji(Repozytorium[Transakcja]):
             "konto_docelowe_id": getattr(rekord, "konto_docelowe_id", None),
             "kategoria_id": rekord.kategoria_id,
             "import_id": rekord.import_id,
+            "cykliczna_id": rekord.cykliczna_id,
         }
 
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Transakcja:
@@ -163,6 +164,7 @@ class RepozytoriumTransakcji(Repozytorium[Transakcja]):
             "kategoria_id": wiersz["kategoria_id"],
             "id": wiersz["id"],
             "import_id": wiersz["import_id"],
+            "cykliczna_id": wiersz["cykliczna_id"],
         }
         if klasa is Przelew:
             pola["konto_docelowe_id"] = wiersz["konto_docelowe_id"]

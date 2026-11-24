@@ -23,3 +23,14 @@ class StanBudzetu(Enum):
 
     def __str__(self) -> str:
         return self.value
+
+
+class Czestotliwosc(Enum):
+    """Jak często powtarza się transakcja cykliczna."""
+
+    TYDZIEN = "co tydzień"
+    MIESIAC = "co miesiąc"
+    ROK = "co rok"
+
+    def __str__(self) -> str:
+        return self.value

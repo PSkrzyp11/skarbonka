@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.text import Text
 
 from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
+from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import StanBudzetu
 from skarbonka.models.konto import Konto
 from skarbonka.models.plan import Cel
@@ -199,6 +200,28 @@ def pokaz_cele(cele: list[Cel], dzis: date) -> None:
             formatuj_date(cel.termin),
             formatuj_procent(cel.procent),
             "osiągnięty" if cel.brakuje == 0 else formatuj_kwote(cel.rata(dzis)),
+        )
+    konsola.print(tabela)
+
+
+def pokaz_cykliczne(cykliczne: list[Cykliczna]) -> None:
+    """Wypisuje wzory transakcji cyklicznych."""
+    tabela = _tabela(
+        ("Nazwa", "left"),
+        ("Kwota", "right"),
+        ("Powtarzanie", "left"),
+        ("Od", "right"),
+        ("Ostatnio", "right"),
+        ("Aktywna", "left"),
+    )
+    for c in cykliczne:
+        tabela.add_row(
+            Text(c.nazwa),
+            _kwota(c.wplyw),
+            str(c.czestotliwosc),
+            formatuj_date(c.start),
+            formatuj_date(c.ostatnia) if c.ostatnia else "-",
+            "tak" if c.aktywna else "nie",
         )
     konsola.print(tabela)
 

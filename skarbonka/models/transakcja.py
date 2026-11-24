@@ -30,6 +30,7 @@ class Transakcja(ABC):
     kategoria_id: int | None = None
     id: int | None = None
     import_id: int | None = None
+    cykliczna_id: int | None = None
 
     def __post_init__(self) -> None:
         """Pilnuje poprawności kwoty niezależnie od tego, kto tworzy obiekt."""

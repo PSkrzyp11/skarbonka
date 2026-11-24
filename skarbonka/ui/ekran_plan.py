@@ -1,9 +1,10 @@
-"""Ekrany planowania: budżety i cele."""
+"""Ekrany planowania: budżety, cele i wejście do transakcji cyklicznych."""
 
 from datetime import date, timedelta
 
 from skarbonka.models.transakcja import Wydatek
 from skarbonka.ui import widoki
+from skarbonka.ui.ekran_cykliczne import EkranCyklicznych
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
@@ -110,4 +111,5 @@ class EkranPlanu(Ekran):
         return [
             OpcjaMenu("Budżety", EkranBudzetow(self.serwisy).uruchom),
             OpcjaMenu("Cele oszczędnościowe", EkranCeli(self.serwisy).uruchom),
+            OpcjaMenu("Transakcje cykliczne", EkranCyklicznych(self.serwisy).uruchom),
         ]
