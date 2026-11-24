@@ -5,8 +5,8 @@ import logging
 import sys
 from pathlib import Path
 
-from skarbonka import __version__
-from skarbonka.config import PLIK_BAZY
+from skarbonka import __version__, demo
+from skarbonka.config import PLIK_BAZY, PLIK_DEMO
 from skarbonka.services.zestaw import Serwisy, dodaj_dane_startowe, utworz_serwisy
 from skarbonka.ui import widoki
 from skarbonka.ui.aplikacja import Aplikacja
@@ -28,8 +28,12 @@ def wczytaj_argumenty(argumenty: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--wersja", action="version", version=f"Skarbonka {__version__}", help="pokaż wersję"
     )
-    parser.add_argument(
+    wybor_bazy = parser.add_mutually_exclusive_group()
+    wybor_bazy.add_argument(
         "--baza", type=Path, default=PLIK_BAZY, metavar="PLIK", help="użyj innego pliku bazy"
+    )
+    wybor_bazy.add_argument(
+        "--demo", action="store_true", help="użyj osobnej bazy z przykładowymi danymi"
     )
     parser.add_argument("--bez-kolorow", action="store_true", help="wyłącz kolory")
     parser.add_argument("--debug", action="store_true", help="zapisuj szczegółowe logi")
@@ -61,9 +65,11 @@ def main(argumenty: list[str] | None = None) -> None:
     logger.info("Start aplikacji")
     baza = None
     try:
-        baza = otworz_baze(opcje.baza)
+        baza = otworz_baze(PLIK_DEMO if opcje.demo else opcje.baza)
         serwisy = utworz_serwisy(baza)
         dodaj_dane_startowe(serwisy)
+        if opcje.demo and not serwisy.transakcje.wszystkie():
+            demo.wypelnij(baza, serwisy)
         utworz_kopie_dzienna(serwisy)
         Aplikacja(serwisy).uruchom()
     except (KeyboardInterrupt, EOFError):

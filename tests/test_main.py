@@ -34,6 +34,22 @@ def test_dane_przezywaja_ponowne_uruchomienie(tmp_path, monkeypatch, odpowiedzi,
     assert "Pokazano 1 z 1" in capsys.readouterr().out
 
 
+def test_tryb_demo(tmp_path, monkeypatch, odpowiedzi, capsys):
+    monkeypatch.setattr("main.skonfiguruj_logi", lambda **opcje: True)
+    monkeypatch.setattr("main.PLIK_DEMO", tmp_path / "demo.db")
+    for _ in range(2):
+        odpowiedzi("1", "5", "n", "0", "0")
+        main(["--demo"])
+    pierwsze, drugie = capsys.readouterr().out.split("Do zobaczenia!")[:2]
+    assert "Pokazano 20 z" in pierwsze
+    assert pierwsze.strip() == drugie.strip()
+
+
+def test_demo_wyklucza_wybor_bazy():
+    with pytest.raises(SystemExit):
+        wczytaj_argumenty(["--demo", "--baza", "x.db"])
+
+
 def test_nie_da_sie_otworzyc_bazy(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("main.skonfiguruj_logi", lambda **opcje: False)
     main(["--baza", str(tmp_path)])
