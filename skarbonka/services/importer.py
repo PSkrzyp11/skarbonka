@@ -95,7 +95,7 @@ class Importer:
         """Tworzy transakcję z jednego wiersza pliku."""
 
         def komorka(kolumna: str) -> str:
-            return wiersz.get(kolumna.casefold(), "")
+            return wiersz.get(kolumna.casefold(), "") if kolumna else ""
 
         if komorka(profil.kolumna_rodzaj).casefold() == Przelew.RODZAJ:
             raise BladWalidacji("przelew między własnymi kontami, pominięto.")

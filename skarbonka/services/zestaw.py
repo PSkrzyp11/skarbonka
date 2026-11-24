@@ -9,6 +9,7 @@ from skarbonka.services.eksport import Eksporter
 from skarbonka.services.importer import Importer
 from skarbonka.services.kategorie import SerwisKategorii
 from skarbonka.services.konta import SerwisKont
+from skarbonka.services.kopie import SerwisKopii
 from skarbonka.services.profile import SerwisProfili
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.storage.baza import Baza
@@ -30,6 +31,7 @@ class Serwisy:
     eksporter: Eksporter
     importer: Importer
     profile: SerwisProfili
+    kopie: SerwisKopii
 
 
 def utworz_serwisy(baza: Baza, plik_profili: Path = PLIK_PROFILI) -> Serwisy:
@@ -44,6 +46,7 @@ def utworz_serwisy(baza: Baza, plik_profili: Path = PLIK_PROFILI) -> Serwisy:
         eksporter=Eksporter(konta, kategorie),
         importer=Importer(baza, transakcje, RepozytoriumImportow(baza), kategorie),
         profile=SerwisProfili(plik_profili),
+        kopie=SerwisKopii(baza),
     )
 
 

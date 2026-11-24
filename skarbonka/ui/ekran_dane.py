@@ -14,7 +14,7 @@ LICZBA_W_PODGLADZIE = 5
 
 
 class EkranDanych(Ekran):
-    """Import i eksport danych."""
+    """Import, eksport i kopie zapasowe."""
 
     TYTUL = "Dane"
 
@@ -23,6 +23,7 @@ class EkranDanych(Ekran):
             OpcjaMenu("Import wyciągu CSV", self.importuj),
             OpcjaMenu("Cofnij ostatni import", self.cofnij_import),
             OpcjaMenu("Eksport transakcji do CSV", self.eksportuj),
+            OpcjaMenu("Utwórz kopię zapasową", self.utworz_kopie),
         ]
 
     def importuj(self) -> None:
@@ -56,6 +57,11 @@ class EkranDanych(Ekran):
         if potwierdz("Usunąć wszystkie transakcje z tego importu?"):
             liczba = self.serwisy.importer.cofnij(ostatni)
             widoki.sukces(f"Usunięto {liczba} transakcji.")
+
+    def utworz_kopie(self) -> None:
+        """Zapisuje wszystkie dane do pliku JSON."""
+        sciezka = self.serwisy.kopie.utworz()
+        widoki.sukces(f"Utworzono kopię: {sciezka}")
 
     def _pokaz_poczatek(self, tytul: str, transakcje: list[Transakcja]) -> None:
         """Wypisuje kilka pierwszych transakcji z listy."""

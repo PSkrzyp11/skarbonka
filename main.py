@@ -7,12 +7,12 @@ from pathlib import Path
 
 from skarbonka import __version__
 from skarbonka.config import PLIK_BAZY
-from skarbonka.services.zestaw import dodaj_dane_startowe, utworz_serwisy
+from skarbonka.services.zestaw import Serwisy, dodaj_dane_startowe, utworz_serwisy
 from skarbonka.storage.baza import Baza
 from skarbonka.ui import widoki
 from skarbonka.ui.aplikacja import Aplikacja
 from skarbonka.utils.logi import skonfiguruj_logi
-from skarbonka.wyjatki import BladBazy
+from skarbonka.wyjatki import BladBazy, BladPliku
 
 logger = logging.getLogger("skarbonka.main")
 
@@ -36,6 +36,15 @@ def wczytaj_argumenty(argumenty: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argumenty)
 
 
+def utworz_kopie_dzienna(serwisy: Serwisy) -> None:
+    """Tworzy kopię automatyczną. Jej brak nie przeszkadza w dalszej pracy."""
+    try:
+        serwisy.kopie.utworz_dzienna()
+    except (BladPliku, OSError) as blad:
+        logger.warning("Brak kopii automatycznej: %s", blad)
+        widoki.blad(f"Nie udało się utworzyć kopii automatycznej: {blad}")
+
+
 def main(argumenty: list[str] | None = None) -> None:
     """Uruchamia aplikację i pilnuje spokojnego zakończenia programu.
 
@@ -55,6 +64,7 @@ def main(argumenty: list[str] | None = None) -> None:
         baza = Baza(opcje.baza)
         serwisy = utworz_serwisy(baza)
         dodaj_dane_startowe(serwisy)
+        utworz_kopie_dzienna(serwisy)
         Aplikacja(serwisy).uruchom()
     except (KeyboardInterrupt, EOFError):
         print()
