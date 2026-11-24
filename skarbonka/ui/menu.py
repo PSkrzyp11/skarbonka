@@ -1,8 +1,11 @@
-"""Uniwersalne menu tekstowe."""
+"""Uniwersalne menu tekstowe i klasa bazowa ekranów."""
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from skarbonka.services.zestaw import Serwisy
+from skarbonka.ui import widoki
 from skarbonka.ui.wejscie import wczytaj_wybor
 from skarbonka.wyjatki import BladSkarbonki
 
@@ -49,4 +52,21 @@ class Menu:
                     break
                 self.opcje[klucz].akcja()
             except BladSkarbonki as blad:
-                print(f"  ! {blad}")
+                widoki.blad(str(blad))
+
+
+class Ekran(ABC):
+    """Wspólna część ekranów: dostęp do serwisów i własne menu."""
+
+    TYTUL = ""
+
+    def __init__(self, serwisy: Serwisy) -> None:
+        self.serwisy = serwisy
+
+    @abstractmethod
+    def opcje(self) -> list[OpcjaMenu]:
+        """Zwraca pozycje menu ekranu."""
+
+    def uruchom(self) -> None:
+        """Pokazuje menu ekranu."""
+        Menu(self.TYTUL, self.opcje()).uruchom()

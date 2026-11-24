@@ -2,6 +2,7 @@
 
 import sys
 
+from skarbonka.services.zestaw import utworz_serwisy
 from skarbonka.ui.aplikacja import Aplikacja
 
 
@@ -13,7 +14,7 @@ def main() -> None:
     """
     sys.stdout.reconfigure(errors="replace")
     try:
-        Aplikacja().uruchom()
+        Aplikacja(utworz_serwisy()).uruchom()
     except (KeyboardInterrupt, EOFError):
         print("\nZakończono na życzenie użytkownika.")
     else:

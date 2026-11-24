@@ -1,6 +1,6 @@
 """Transakcje: zapis, filtrowanie, sortowanie i sumowanie."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import date
 from decimal import Decimal
 
@@ -72,6 +72,12 @@ def posortuj(transakcje: list[Transakcja], sposob: str = "od najnowszych") -> li
     """Zwraca nową listę posortowaną wybranym sposobem."""
     klucz, malejaco = SORTOWANIA[sposob]
     return sorted(transakcje, key=klucz, reverse=malejaco)
+
+
+def strony(transakcje: list[Transakcja], rozmiar: int = 20) -> Iterator[list[Transakcja]]:
+    """Generator: oddaje kolejne porcje listy, po jednej na żądanie."""
+    for poczatek in range(0, len(transakcje), rozmiar):
+        yield transakcje[poczatek : poczatek + rozmiar]
 
 
 def suma_wydatkow(transakcje: list[Transakcja]) -> Decimal:

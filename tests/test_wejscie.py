@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from skarbonka.services.zestaw import utworz_serwisy
 from skarbonka.ui import wejscie
 from skarbonka.ui.aplikacja import Aplikacja
 from skarbonka.ui.menu import Menu, OpcjaMenu
@@ -66,8 +67,8 @@ def test_menu_przezywa_blad_opcji(odpowiedzi, capsys):
 
 
 def test_dodanie_wydatku_przez_menu(odpowiedzi):
-    aplikacja = Aplikacja()
+    serwisy = utworz_serwisy()
     odpowiedzi("1", "1", "20", "", "Kawa", "1", "0", "0")
-    aplikacja.uruchom()
-    transakcje = aplikacja.transakcje.wszystkie()
+    Aplikacja(serwisy).uruchom()
+    transakcje = serwisy.transakcje.wszystkie()
     assert [t.kwota for t in transakcje] == [Decimal("20")]

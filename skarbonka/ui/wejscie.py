@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY, MAKS_DLUGOSC_OPISU, SLOWO_ANULUJ
+from skarbonka.ui import widoki
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
 from skarbonka.utils.walidacja import (
     parsuj_date,
@@ -37,7 +38,7 @@ def wczytaj(komunikat: str, parser: Callable[[str], Any], domyslna: Any = None) 
         try:
             return parser(tekst)
         except BladWalidacji as blad:
-            print(f"  ! {blad}")
+            widoki.blad(str(blad))
 
 
 def _z_podpowiedzia(komunikat: str, podpowiedz: str) -> str:

@@ -8,7 +8,7 @@ import pytest
 from skarbonka.models.enums import TypKonta
 from skarbonka.models.transakcja import Przelew, Przychod, Wydatek
 from skarbonka.services import analizy
-from skarbonka.services.transakcje import bilans, posortuj, suma_wydatkow
+from skarbonka.services.transakcje import bilans, posortuj, strony, suma_wydatkow
 from skarbonka.services.zestaw import utworz_serwisy
 from skarbonka.wyjatki import BladWalidacji, RekordWUzyciu
 
@@ -47,6 +47,11 @@ def test_filtr_z_odwrocona_kolejnoscia_dat(serwisy):
 def test_sortowanie(transakcje):
     assert numery(posortuj(transakcje)) == [5, 4, 3, 2, 1]
     assert numery(posortuj(transakcje, "od największych kwot")) == [2, 5, 3, 4, 1]
+
+
+def test_strony(transakcje):
+    assert [numery(s) for s in strony(transakcje, rozmiar=2)] == [[1, 2], [3, 4], [5]]
+    assert list(strony([])) == []
 
 
 def test_sumy_pomijaja_przelewy(transakcje):
