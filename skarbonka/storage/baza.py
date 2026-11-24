@@ -7,6 +7,7 @@ w formacie RRRR-MM-DD.
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,22 @@ CREATE TABLE IF NOT EXISTS transakcje (
 );
 CREATE INDEX IF NOT EXISTS transakcje_data ON transakcje(data);
 """
+
+PLIKI_POMOCNICZE = ("", "-journal", "-wal", "-shm")
+
+
+def odloz_uszkodzona(sciezka: Path) -> Path:
+    """Zmienia nazwę uszkodzonej bazy i jej plików pomocniczych."""
+    znacznik = f"{datetime.now():%Y%m%d-%H%M%S-%f}"
+    cel = sciezka.with_name(f"{sciezka.stem}.uszkodzona-{znacznik}{sciezka.suffix}")
+    try:
+        for koncowka in PLIKI_POMOCNICZE:
+            plik = Path(f"{sciezka}{koncowka}")
+            if plik.exists():
+                plik.rename(f"{cel}{koncowka}")
+    except OSError as blad:
+        raise BladBazy(f"Nie można przenieść uszkodzonej bazy {sciezka}: {blad}") from blad
+    return cel
 
 
 class Baza:

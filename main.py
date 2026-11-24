@@ -8,9 +8,9 @@ from pathlib import Path
 from skarbonka import __version__
 from skarbonka.config import PLIK_BAZY
 from skarbonka.services.zestaw import Serwisy, dodaj_dane_startowe, utworz_serwisy
-from skarbonka.storage.baza import Baza
 from skarbonka.ui import widoki
 from skarbonka.ui.aplikacja import Aplikacja
+from skarbonka.ui.ratunek import otworz_baze
 from skarbonka.utils.logi import skonfiguruj_logi
 from skarbonka.wyjatki import BladBazy, BladPliku
 
@@ -61,7 +61,7 @@ def main(argumenty: list[str] | None = None) -> None:
     logger.info("Start aplikacji")
     baza = None
     try:
-        baza = Baza(opcje.baza)
+        baza = otworz_baze(opcje.baza)
         serwisy = utworz_serwisy(baza)
         dodaj_dane_startowe(serwisy)
         utworz_kopie_dzienna(serwisy)
