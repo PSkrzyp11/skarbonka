@@ -5,7 +5,7 @@ from skarbonka.services.transakcje import bilans, suma_przychodow, suma_wydatkow
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import wczytaj_miesiac
-from skarbonka.utils.formatowanie import formatuj_miesiac, formatuj_procent
+from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac, formatuj_procent
 
 
 class EkranAnaliz(Ekran):
@@ -20,6 +20,7 @@ class EkranAnaliz(Ekran):
             OpcjaMenu("Wydatki według kategorii", self.pokaz_kategorie),
             OpcjaMenu("Trend 6 miesięcy", self.pokaz_trend),
             OpcjaMenu("Największe wydatki", self.pokaz_najwieksze),
+            OpcjaMenu("Prognoza salda", self.pokaz_prognoze),
         ]
 
     def pokaz_sumy(self) -> None:
@@ -69,4 +70,23 @@ class EkranAnaliz(Ekran):
             return
         widoki.pokaz_transakcje(
             wydatki, self.serwisy.konta.nazwy(), self.serwisy.kategorie.nazwy()
+        )
+
+    def pokaz_prognoze(self) -> None:
+        """Wypisuje prognozę salda na koniec miesiąca."""
+        prognoza = self.serwisy.prognoza.policz()
+        print(f"Do {formatuj_date(prognoza.koniec)} zostało dni: {prognoza.dni}")
+        widoki.pokaz_kwoty(
+            {
+                "Saldo dziś": prognoza.saldo_dzis,
+                "Transakcje cykliczne": prognoza.cykliczne,
+                "Dzienne wydatki (średnio)": prognoza.tempo_srednie,
+            }
+        )
+        widoki.pokaz_kwoty(
+            {
+                "Optymistycznie": prognoza.optymistyczna,
+                "Realistycznie": prognoza.realistyczna,
+                "Pesymistycznie": prognoza.pesymistyczna,
+            }
         )

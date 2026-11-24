@@ -13,6 +13,7 @@ from skarbonka.services.kategoryzacja import Kategoryzator
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.kopie import SerwisKopii
 from skarbonka.services.planowanie import SerwisBudzetow, SerwisCeli
+from skarbonka.services.prognoza import SerwisPrognozy
 from skarbonka.services.profile import SerwisProfili
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.services.ustawienia import SerwisUstawien
@@ -44,6 +45,7 @@ class Serwisy:
     budzety: SerwisBudzetow
     cele: SerwisCeli
     cykliczne: SerwisCyklicznych
+    prognoza: SerwisPrognozy
     eksporter: Eksporter
     importer: Importer
     kopie: SerwisKopii
@@ -83,6 +85,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     transakcje = SerwisTransakcji(repo_transakcji)
     konta = SerwisKont(repo_kont, repo_transakcji)
     kategorie = SerwisKategorii(repo_kategorii, repo_transakcji)
+    cykliczne = SerwisCyklicznych(baza, repo_cyklicznych, transakcje)
     kategoryzator = Kategoryzator(baza, repo_regul, kategorie, transakcje)
     return Serwisy(
         katalog=katalog,
@@ -92,7 +95,8 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         kategoryzator=kategoryzator,
         budzety=SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia),
         cele=SerwisCeli(repo_celi, repo_wplat),
-        cykliczne=SerwisCyklicznych(baza, repo_cyklicznych, transakcje),
+        cykliczne=cykliczne,
+        prognoza=SerwisPrognozy(transakcje, konta, cykliczne),
         eksporter=Eksporter(konta, kategorie),
         importer=Importer(baza, repo_transakcji, repo_importow, kategorie, kategoryzator),
         kopie=SerwisKopii(baza, repozytoria),

@@ -45,5 +45,9 @@ class UszkodzonyPlik(BladPliku):
     """Plik istnieje, ale ma nieprawidłową zawartość."""
 
 
+class ZaMaloDanych(BladSkarbonki):
+    """Historia jest zbyt krótka, żeby coś policzyć."""
+
+
 class AnulowanoOperacje(BladSkarbonki):
     """Użytkownik świadomie przerwał wpisywanie danych."""
