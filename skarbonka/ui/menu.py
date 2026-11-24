@@ -33,10 +33,9 @@ class Menu:
 
     def pokaz(self) -> None:
         """Wypisuje tytuł i wszystkie opcje."""
-        print(f"\n--- {self.tytul} ---")
-        for klucz, opcja in self.opcje.items():
-            print(f"{klucz}. {opcja.etykieta}")
-        print(f"{KLUCZ_POWROTU}. {self.powrot}")
+        pozycje = {klucz: opcja.etykieta for klucz, opcja in self.opcje.items()}
+        pozycje[KLUCZ_POWROTU] = self.powrot
+        widoki.pokaz_menu(self.tytul, pozycje)
 
     def uruchom(self) -> None:
         """Obsługuje wybory użytkownika aż do wyjścia z menu.
