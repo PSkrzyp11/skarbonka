@@ -8,6 +8,7 @@ import pytest
 from skarbonka.utils.walidacja import (
     parsuj_date,
     parsuj_kwote,
+    parsuj_liczbe,
     parsuj_miesiac,
     parsuj_numer,
     parsuj_tak_nie,
@@ -96,6 +97,21 @@ def test_numer():
 def test_bledny_numer(tekst):
     with pytest.raises(BladWalidacji):
         parsuj_numer(tekst)
+
+
+def test_liczba_z_zakresu():
+    assert parsuj_liczbe("0", maks=10) == 0
+    for tekst in ("", "11", "-1", "abc"):
+        with pytest.raises(BladWalidacji):
+            parsuj_liczbe(tekst, maks=10)
+    with pytest.raises(BladWalidacji):
+        parsuj_liczbe("0", maks=10, minimum=1)
+
+
+def test_najwczesniejsza_data():
+    assert parsuj_date("02.01.2026", najwczesniej=date(2026, 1, 2)) == date(2026, 1, 2)
+    with pytest.raises(NieprawidlowaData):
+        parsuj_date("01.01.2026", najwczesniej=date(2026, 1, 2))
 
 
 def test_tak_nie():

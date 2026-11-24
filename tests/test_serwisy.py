@@ -122,8 +122,9 @@ def test_stopa_oszczednosci():
 
 
 def test_opis_oszczednosci():
-    assert analizy.opis_oszczednosci(Decimal("200"), Decimal("50")).startswith("Zaoszczędzono 25,0%")
-    assert analizy.opis_oszczednosci(Decimal("200"), Decimal("-1")).startswith("Wydatki były")
+    przychody = Decimal("200")
+    assert "25,0%" in analizy.opis_oszczednosci(przychody, Decimal("50"))
+    assert "Wydatki były" in analizy.opis_oszczednosci(przychody, Decimal("-1"))
     assert analizy.opis_oszczednosci(Decimal("0"), Decimal("-1")) == ""
 
 

@@ -28,7 +28,8 @@ class EkranRegul(Ekran):
         if not reguly:
             print("Brak reguł.")
         for regula in reguly:
-            print(f"„{regula.fraza}” -> {nazwy[regula.kategoria_id]} (priorytet {regula.priorytet})")
+            nazwa = nazwy[regula.kategoria_id]
+            print(f"„{regula.fraza}” -> {nazwa} (priorytet {regula.priorytet})")
 
     def dodaj(self) -> None:
         """Wczytuje dane i dodaje regułę."""

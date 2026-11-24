@@ -36,7 +36,8 @@ def test_limit_musi_byc_dodatni():
 def test_wykonanie_budzetow(serwisy):
     serwisy.budzety.ustaw(1, date(2026, 11, 15), Decimal("125"))
     serwisy.budzety.ustaw(2, LISTOPAD, Decimal("200"))
-    wynik = [(w.kategoria, w.wydano, w.procent, w.stan) for w in serwisy.budzety.wykonanie(LISTOPAD)]
+    wykonanie = serwisy.budzety.wykonanie(LISTOPAD)
+    wynik = [(w.kategoria, w.wydano, w.procent, w.stan) for w in wykonanie]
     assert wynik == [
         ("Mieszkanie", Decimal("300.00"), 150.0, StanBudzetu.PRZEKROCZONY),
         ("Jedzenie", Decimal("100.00"), 80.0, StanBudzetu.UWAGA),

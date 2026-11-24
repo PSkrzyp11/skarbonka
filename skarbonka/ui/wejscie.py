@@ -111,11 +111,12 @@ def wczytaj_nazwe(komunikat: str, sprawdz: Callable[[str], None]) -> str:
 
 def wczytaj_sciezke(komunikat: str, domyslna: Path | None = None) -> Path:
     """Wczytuje ścieżkę do pliku, także wklejoną w cudzysłowie."""
-    return wczytaj(
-        _z_podpowiedzia(komunikat, str(domyslna or "")),
-        lambda tekst: Path(sprawdz_tekst(tekst.strip().strip('"'), komunikat, MAKS_DLUGOSC_SCIEZKI)),
-        domyslna,
-    )
+
+    def parser(tekst: str) -> Path:
+        bez_cudzyslowu = tekst.strip().strip('"')
+        return Path(sprawdz_tekst(bez_cudzyslowu, komunikat, MAKS_DLUGOSC_SCIEZKI))
+
+    return wczytaj(_z_podpowiedzia(komunikat, str(domyslna or "")), parser, domyslna)
 
 
 def wczytaj_fraze(komunikat: str) -> str:

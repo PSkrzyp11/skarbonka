@@ -16,7 +16,7 @@ def wczytaj_json(sciezka: Path) -> Any:
         raise BladPliku(f"Nie ma pliku {sciezka}.") from blad
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as blad:
         raise UszkodzonyPlik(f"Plik {sciezka} nie jest poprawnym plikiem JSON.") from blad
-    except (OSError, ValueError) as blad:
+    except (OSError, TypeError, ValueError) as blad:
         raise BladPliku(f"Nie można odczytać pliku {sciezka}: {blad}") from blad
 
 
@@ -32,5 +32,5 @@ def zapisz_json(sciezka: Path, dane: Any) -> None:
         with open(tymczasowy, "w", encoding="utf-8") as plik:
             json.dump(dane, plik, ensure_ascii=False, indent=2)
         tymczasowy.replace(sciezka)
-    except (OSError, ValueError) as blad:
+    except (OSError, TypeError, ValueError) as blad:
         raise BladPliku(f"Nie można zapisać pliku {sciezka}: {blad}") from blad

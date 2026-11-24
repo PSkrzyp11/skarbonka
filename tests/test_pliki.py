@@ -106,3 +106,27 @@ def test_uszkodzone_profile(tmp_path, tresc):
     plik.write_text(tresc, encoding="utf-8")
     with pytest.raises(UszkodzonyPlik):
         SerwisProfili(plik).wszystkie()
+
+
+def test_nie_mozna_zapisac(tmp_path):
+    przeszkoda = tmp_path / "plik"
+    przeszkoda.write_text("", encoding="utf-8")
+    with pytest.raises(BladPliku):
+        zapisz_csv(przeszkoda / "a.csv", ["a"], [])
+    with pytest.raises(BladPliku):
+        zapisz_json(przeszkoda / "a.json", {})
+
+
+def test_nieudany_zapis_json_zostawia_stary_plik(tmp_path):
+    sciezka = tmp_path / "dane.json"
+    zapisz_json(sciezka, {"wersja": 1})
+    with pytest.raises(BladPliku):
+        zapisz_json(sciezka, {"wersja": float("nan"), "zbior": {1, 2}})
+    assert wczytaj_json(sciezka) == {"wersja": 1}
+
+
+def test_bledny_separator_i_kodowanie_profilu(plik_csv):
+    sciezka = plik_csv("data;kwota;opis\n1;2;3\n")
+    for profil in (ProfilCSV("x", separator=""), ProfilCSV("x", kodowanie="nieznane")):
+        with pytest.raises(BladPliku):
+            list(czytaj_wiersze(sciezka, profil))

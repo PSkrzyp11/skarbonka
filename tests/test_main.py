@@ -56,3 +56,51 @@ def test_nie_da_sie_otworzyc_bazy(tmp_path, monkeypatch, capsys):
     wyjscie = capsys.readouterr().out
     assert "bez logowania" in wyjscie
     assert "Nie można otworzyć bazy" in wyjscie
+
+
+@pytest.fixture
+def argumenty(tmp_path, monkeypatch):
+    """Argumenty z bazą w katalogu tymczasowym i wyłączonymi logami."""
+    monkeypatch.setattr("main.skonfiguruj_logi", lambda **opcje: True)
+    return ["--baza", str(tmp_path / "test.db")]
+
+
+def test_ctrl_c_konczy_spokojnie(argumenty, monkeypatch, capsys):
+    def przerwij(komunikat=""):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", przerwij)
+    main(argumenty)
+    assert "Zakończono na życzenie użytkownika." in capsys.readouterr().out
+
+
+def test_nieprzewidziany_blad_nie_pokazuje_sladu(argumenty, monkeypatch, capsys, caplog):
+    def zepsute(serwisy):
+        raise RuntimeError("awaria")
+
+    monkeypatch.setattr("main.Aplikacja", zepsute)
+    main(argumenty)
+    wyjscie = capsys.readouterr().out
+    assert "Wystąpił nieoczekiwany błąd" in wyjscie
+    assert "Traceback" not in wyjscie
+    assert "awaria" in caplog.text
+
+
+def test_brak_kopii_dziennej_nie_przeszkadza(argumenty, monkeypatch, odpowiedzi, capsys):
+    def brak_miejsca(serwis):
+        raise OSError("brak miejsca na dysku")
+
+    monkeypatch.setattr("skarbonka.services.kopie.SerwisKopii.utworz_dzienna", brak_miejsca)
+    odpowiedzi("0")
+    main(argumenty)
+    wyjscie = capsys.readouterr().out
+    assert "brak miejsca na dysku" in wyjscie
+    assert "Do zobaczenia!" in wyjscie
+
+
+def test_bez_kolorow(argumenty, monkeypatch, odpowiedzi):
+    wylaczone = []
+    monkeypatch.setattr("main.widoki.wylacz_kolory", lambda: wylaczone.append(True))
+    odpowiedzi("0")
+    main([*argumenty, "--bez-kolorow"])
+    assert wylaczone == [True]

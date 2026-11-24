@@ -34,7 +34,8 @@ def test_znak_kwoty_wyznacza_rodzaj(przygotuj):
 
 
 def test_opis_jest_czyszczony(przygotuj):
-    podglad = przygotuj("2026-11-01;-1;" + "x" * 100 + ";", "2026-11-01;-1;a\tb   c;", "2026-11-01;-2;;")
+    opisy = ("x" * 100, "a\tb   c", "")
+    podglad = przygotuj(*(f"2026-11-01;-1;{opis};" for opis in opisy))
     assert [t.opis for t in podglad.nowe] == ["x" * 60, "a b c", "Import"]
 
 

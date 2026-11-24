@@ -34,20 +34,24 @@ def serwisy_plikowe(plik_bazy):
     baza.zamknij()
 
 
+def wszystko(serwisy) -> list:
+    serwisy_z_danymi = (serwisy.konta, serwisy.kategorie, serwisy.transakcje)
+    return [serwis.wszystkie() for serwis in serwisy_z_danymi]
+
+
 def opisy(serwisy) -> list[str]:
     return [t.opis for t in serwisy.transakcje.wszystkie()]
 
 
 def test_kopia_przywraca_te_same_dane(serwisy_plikowe):
     serwisy = serwisy_plikowe
-    przed = (serwisy.konta.wszystkie(), serwisy.kategorie.wszystkie(), serwisy.transakcje.wszystkie())
+    przed = wszystko(serwisy)
     kopia = serwisy.kopie.utworz()
     serwisy.transakcje.usun(serwisy.transakcje.pobierz(1))
     serwisy.kategorie.dodaj("Nowa")
 
     serwisy.kopie.przywroc(kopia)
-    po = (serwisy.konta.wszystkie(), serwisy.kategorie.wszystkie(), serwisy.transakcje.wszystkie())
-    assert po == przed
+    assert wszystko(serwisy) == przed
 
 
 def test_kopia_obejmuje_wszystkie_tabele(serwisy_plikowe):

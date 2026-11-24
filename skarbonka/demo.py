@@ -29,7 +29,12 @@ ZAKUPY = (
     ("Sklep odzieżowy", "Ubrania", 60, 280, 0.03),
     ("Kwiaciarnia", "Inne wydatki", 20, 80, 0.03),
 )
-REGULY = {"biedronka": "Jedzenie", "piekarnia": "Jedzenie", "paliwo": "Transport", "kino": "Rozrywka"}
+REGULY = {
+    "biedronka": "Jedzenie",
+    "piekarnia": "Jedzenie",
+    "paliwo": "Transport",
+    "kino": "Rozrywka",
+}
 WSPOLCZYNNIKI_BUDZETOW = {"Jedzenie": "0.9", "Transport": "1.15", "Rozrywka": "2"}
 NAJMNIEJSZY_BUDZET = Decimal("50")
 

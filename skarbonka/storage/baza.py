@@ -16,7 +16,18 @@ from skarbonka.wyjatki import BladBazy, UszkodzonaBaza
 
 W_PAMIECI = ":memory:"
 
-TABELE = ("konta", "kategorie", "importy", "cykliczne", "transakcje", "budzety", "cele", "wplaty_celu", "reguly", "kursy")
+TABELE = (
+    "konta",
+    "kategorie",
+    "importy",
+    "cykliczne",
+    "transakcje",
+    "budzety",
+    "cele",
+    "wplaty_celu",
+    "reguly",
+    "kursy",
+)
 
 SCHEMAT = """
 CREATE TABLE IF NOT EXISTS konta (
