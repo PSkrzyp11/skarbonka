@@ -12,24 +12,6 @@ from skarbonka.ui.menu import Menu, OpcjaMenu
 from skarbonka.wyjatki import AnulowanoOperacje, BladSkarbonki, NieZnalezionoRekordu
 
 
-@pytest.fixture
-def odpowiedzi(monkeypatch):
-    """Zwraca funkcję, która ustawia kolejne odpowiedzi użytkownika."""
-
-    def ustaw(*teksty: str) -> None:
-        kolejne = iter(teksty)
-
-        def podstawiony_input(komunikat: str = "") -> str:
-            try:
-                return next(kolejne)
-            except StopIteration:
-                raise EOFError from None
-
-        monkeypatch.setattr("builtins.input", podstawiony_input)
-
-    return ustaw
-
-
 def test_kwota_pyta_do_skutku(odpowiedzi):
     odpowiedzi("abc", "", "-5", "12,50")
     assert wejscie.wczytaj_kwote() == Decimal("12.50")

@@ -69,3 +69,21 @@ def serwisy(baza, konta, kategorie, transakcje) -> Serwisy:
         for rekord in rekordy:
             repozytorium.dodaj(rekord)
     return utworz_serwisy(baza)
+
+
+@pytest.fixture
+def odpowiedzi(monkeypatch):
+    """Zwraca funkcję, która ustawia kolejne odpowiedzi użytkownika."""
+
+    def ustaw(*teksty: str) -> None:
+        kolejne = iter(teksty)
+
+        def podstawiony_input(komunikat: str = "") -> str:
+            try:
+                return next(kolejne)
+            except StopIteration:
+                raise EOFError from None
+
+        monkeypatch.setattr("builtins.input", podstawiony_input)
+
+    return ustaw
