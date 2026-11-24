@@ -134,7 +134,7 @@ def pokaz_bledy(bledy: list[str], ile: int = 10) -> None:
     for tekst in bledy[:ile]:
         blad(tekst)
     if len(bledy) > ile:
-        blad(f"...i {len(bledy) - ile} kolejnych.")
+        blad(f"Pozostałe błędy: {len(bledy) - ile}")
 
 
 def pokaz_konta(salda: list[tuple[Konto, Decimal]], razem: Decimal) -> None:

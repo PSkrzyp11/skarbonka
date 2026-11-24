@@ -52,7 +52,7 @@ def test_demo_wyklucza_wybor_bazy():
 
 def test_nie_da_sie_otworzyc_bazy(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("main.skonfiguruj_logi", lambda **opcje: False)
-    main(["--baza", str(tmp_path)])
+    assert main(["--baza", str(tmp_path)]) == 1
     wyjscie = capsys.readouterr().out
     assert "bez logowania" in wyjscie
     assert "Nie można otworzyć bazy" in wyjscie
@@ -70,7 +70,7 @@ def test_ctrl_c_konczy_spokojnie(argumenty, monkeypatch, capsys):
         raise KeyboardInterrupt
 
     monkeypatch.setattr("builtins.input", przerwij)
-    main(argumenty)
+    assert main(argumenty) == 0
     assert "Zakończono na życzenie użytkownika." in capsys.readouterr().out
 
 
@@ -79,7 +79,7 @@ def test_nieprzewidziany_blad_nie_pokazuje_sladu(argumenty, monkeypatch, capsys,
         raise RuntimeError("awaria")
 
     monkeypatch.setattr("main.Aplikacja", zepsute)
-    main(argumenty)
+    assert main(argumenty) == 1
     wyjscie = capsys.readouterr().out
     assert "Wystąpił nieoczekiwany błąd" in wyjscie
     assert "Traceback" not in wyjscie

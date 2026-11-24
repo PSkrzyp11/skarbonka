@@ -69,5 +69,5 @@ class Kategoryzator:
                 if kategoria is not None and kategoria.id != transakcja.kategoria_id:
                     self._transakcje.zmien(replace(transakcja, kategoria_id=kategoria.id))
                     zmiany += 1
-        logger.info("Reguły zmieniły kategorię %s transakcji", zmiany)
+        logger.info("Transakcje zmienione przez reguły: %s", zmiany)
         return zmiany

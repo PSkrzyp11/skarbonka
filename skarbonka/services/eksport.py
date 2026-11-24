@@ -26,7 +26,7 @@ class Eksporter:
         kategorie = self._kategorie.nazwy()
         wiersze = [self._wiersz(t, konta, kategorie) for t in transakcje]
         zapisz_csv(sciezka, NAGLOWKI, wiersze)
-        logger.info("Wyeksportowano %s transakcji", len(wiersze))
+        logger.info("Wyeksportowane transakcje: %s", len(wiersze))
 
     @staticmethod
     def _wiersz(

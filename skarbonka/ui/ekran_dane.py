@@ -49,9 +49,9 @@ class EkranDanych(Ekran):
             print("Nie ma czego importować.")
             return
         self._pokaz_poczatek("Początek listy do importu:", do_zapisu)
-        if potwierdz(f"Zaimportować {len(do_zapisu)} transakcji?"):
+        if potwierdz(f"Zaimportować? (liczba transakcji: {len(do_zapisu)})"):
             self.serwisy.importer.zapisz(podglad.plik, do_zapisu)
-            widoki.sukces(f"Zaimportowano {len(do_zapisu)} transakcji.")
+            widoki.sukces(f"Zaimportowane transakcje: {len(do_zapisu)}")
 
     def cofnij_import(self) -> None:
         """Usuwa transakcje z ostatniego importu po potwierdzeniu."""
@@ -59,7 +59,7 @@ class EkranDanych(Ekran):
         print(f"Ostatni import: {ostatni.plik}, {ostatni.utworzono:%d.%m.%Y %H:%M}")
         if potwierdz("Usunąć wszystkie transakcje z tego importu?"):
             liczba = self.serwisy.importer.cofnij(ostatni)
-            widoki.sukces(f"Usunięto {liczba} transakcji.")
+            widoki.sukces(f"Usunięte transakcje: {liczba}")
 
     def zapisz_raport(self) -> None:
         """Zapisuje raport wybranego miesiąca."""
@@ -105,7 +105,7 @@ class EkranDanych(Ekran):
         sciezka = wczytaj_sciezke("Plik docelowy", self.serwisy.katalog / "eksport" / nazwa)
         if self._mozna_zapisac(sciezka):
             self.serwisy.eksporter.zapisz(transakcje, sciezka)
-            widoki.sukces(f"Zapisano {len(transakcje)} transakcji: {sciezka}")
+            widoki.sukces(f"Zapisane transakcje: {len(transakcje)}, plik: {sciezka}")
 
     @staticmethod
     def _mozna_zapisac(sciezka: Path) -> bool:

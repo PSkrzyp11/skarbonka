@@ -49,8 +49,8 @@ def utworz_kopie_dzienna(serwisy: Serwisy) -> None:
         widoki.blad(f"Nie udało się utworzyć kopii automatycznej: {blad}")
 
 
-def main(argumenty: list[str] | None = None) -> None:
-    """Uruchamia aplikację i pilnuje spokojnego zakończenia programu.
+def main(argumenty: list[str] | None = None) -> int:
+    """Uruchamia aplikację i zwraca kod zakończenia: 0, a po awarii 1.
 
     Znaki, których konsola nie potrafi wyświetlić, są zastępowane, dzięki
     czemu program działa także ze starszymi kodowaniami Windows.
@@ -64,6 +64,7 @@ def main(argumenty: list[str] | None = None) -> None:
         widoki.blad("Nie można utworzyć pliku logów. Aplikacja działa bez logowania.")
     logger.info("Start aplikacji")
     baza = None
+    kod = 0
     try:
         baza = otworz_baze(PLIK_DEMO if opcje.demo else opcje.baza)
         serwisy = utworz_serwisy(baza)
@@ -78,16 +79,19 @@ def main(argumenty: list[str] | None = None) -> None:
     except BladBazy as blad:
         logger.error("%s", blad)
         widoki.blad(str(blad))
+        kod = 1
     except Exception:
         logger.exception("Błąd, który zatrzymał aplikację")
         widoki.blad("Wystąpił nieoczekiwany błąd. Szczegóły są w pliku logów.")
+        kod = 1
     else:
         print("Do zobaczenia!")
     finally:
         if baza is not None:
             baza.zamknij()
         logger.info("Koniec pracy")
+    return kod
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

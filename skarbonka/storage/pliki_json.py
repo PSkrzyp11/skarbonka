@@ -16,7 +16,7 @@ def wczytaj_json(sciezka: Path) -> Any:
         raise BladPliku(f"Nie ma pliku {sciezka}.") from blad
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as blad:
         raise UszkodzonyPlik(f"Plik {sciezka} nie jest poprawnym plikiem JSON.") from blad
-    except (OSError, TypeError, ValueError) as blad:
+    except (OSError, ValueError) as blad:
         raise BladPliku(f"Nie można odczytać pliku {sciezka}: {blad}") from blad
 
 

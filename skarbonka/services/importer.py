@@ -68,7 +68,7 @@ class Importer:
                 lista.append(transakcja)
             finally:
                 wszystkich += 1
-        logger.info("Plik %s: %s wierszy, %s błędnych", sciezka, wszystkich, len(podglad.bledy))
+        logger.info("Plik %s: wiersze %s, błędne %s", sciezka, wszystkich, len(podglad.bledy))
         return podglad
 
     def zapisz(self, plik: str, transakcje: list[Transakcja]) -> Import:
@@ -77,7 +77,7 @@ class Importer:
             wykonany = self._importy.dodaj(Import(plik, datetime.now()))
             for transakcja in transakcje:
                 self._transakcje.dodaj(replace(transakcja, import_id=wykonany.id))
-        logger.info("Import nr %s: %s transakcji", wykonany.id, len(transakcje))
+        logger.info("Import nr %s, transakcje: %s", wykonany.id, len(transakcje))
         return wykonany
 
     def ostatni(self) -> Import:
@@ -92,7 +92,7 @@ class Importer:
         with self._baza.transakcja():
             liczba = self._transakcje.usun_z_importu(wykonany.id)
             self._importy.usun(wykonany.id)
-        logger.info("Cofnięto import nr %s: %s transakcji", wykonany.id, liczba)
+        logger.info("Cofnięto import nr %s, transakcje: %s", wykonany.id, liczba)
         return liczba
 
     def _utworz(self, wiersz: dict[str, str], profil: ProfilCSV, konto_id: int) -> Transakcja:
