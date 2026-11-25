@@ -171,10 +171,24 @@ def test_cykliczne(serwisy, uruchom):
     dzis = f"{date.today():%d.%m.%Y}"
     dodawanie = ("2", "Czynsz", "1", "100", "1", "2", "2", dzis)
     wyjscie = uruchom(ekran, "1", "3", *dodawanie, "1", "3", "3", "3", "1")
-    assert "Brak transakcji cyklicznych." in wyjscie
+    assert "Brak stałych pozycji." in wyjscie
     assert ostatnia(serwisy).cykliczna_id == 1
     assert "wyłączona" in uruchom(ekran, "4", "5", "n", "5", "t")
     assert serwisy.cykliczne.wszystkie() == []
+
+
+def test_bilans_i_edycja_stalych(pelne, uruchom):
+    ekran = EkranCyklicznych(pelne)
+    wyjscie = uruchom(ekran, "1", "7", "6", "1", "Wypłata", "7000", "", "")
+    assert "Zostaje na czysto" in wyjscie
+    assert "4 055,01 zł" in wyjscie
+    assert "Zostało do zapłaty: 59,99 zł" in wyjscie
+    assert pelne.cykliczne.pobierz(1).nazwa == "Wypłata"
+    assert pelne.cykliczne.bilans().przychody == 7000
+
+
+def test_brak_platnosci(serwisy, uruchom):
+    assert "Brak płatności w tym miesiącu." in uruchom(EkranCyklicznych(serwisy), "7")
 
 
 def test_pominiecie_terminu(pelne, uruchom):

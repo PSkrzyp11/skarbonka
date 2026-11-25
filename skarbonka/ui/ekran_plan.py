@@ -1,4 +1,4 @@
-"""Ekrany planowania: budżety, cele i wejście do transakcji cyklicznych."""
+"""Ekrany planowania: budżety, cele i wejście do stałych pozycji."""
 
 from datetime import date, timedelta
 
@@ -111,5 +111,5 @@ class EkranPlanu(Ekran):
         return [
             OpcjaMenu("Budżety", EkranBudzetow(self.serwisy).uruchom),
             OpcjaMenu("Cele oszczędnościowe", EkranCeli(self.serwisy).uruchom),
-            OpcjaMenu("Transakcje cykliczne", EkranCyklicznych(self.serwisy).uruchom),
+            OpcjaMenu("Stałe przychody i opłaty", EkranCyklicznych(self.serwisy).uruchom),
         ]

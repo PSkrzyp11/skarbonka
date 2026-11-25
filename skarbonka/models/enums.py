@@ -30,7 +30,19 @@ class Czestotliwosc(Enum):
 
     TYDZIEN = "co tydzień"
     MIESIAC = "co miesiąc"
+    KWARTAL = "co kwartał"
     ROK = "co rok"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class StanPlatnosci(Enum):
+    """Co dzieje się z terminem stałej płatności."""
+
+    ZALATWIONA = "załatwiona"
+    CZEKA = "czeka"
+    NADCHODZI = "nadchodzi"
 
     def __str__(self) -> str:
         return self.value

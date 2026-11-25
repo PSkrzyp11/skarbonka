@@ -7,6 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from skarbonka.services import analizy
+from skarbonka.services.cykliczne import SerwisCyklicznych
 from skarbonka.services.kategorie import SerwisKategorii
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.planowanie import SerwisBudzetow, SerwisCeli
@@ -34,12 +35,14 @@ class SerwisRaportow:
         kategorie: SerwisKategorii,
         budzety: SerwisBudzetow,
         cele: SerwisCeli,
+        cykliczne: SerwisCyklicznych,
     ) -> None:
         self._transakcje = transakcje
         self._konta = konta
         self._kategorie = kategorie
         self._budzety = budzety
         self._cele = cele
+        self._cykliczne = cykliczne
 
     def zapisz(self, miesiac: date, sciezka: Path) -> None:
         """Zapisuje raport do pliku tekstowego."""
@@ -81,6 +84,7 @@ class SerwisRaportow:
                 for w in self._budzety.wykonanie(miesiac)
             ],
         )
+        yield from self._sekcja("Stałe pozycje, przeliczone na miesiąc", self._stale())
         yield from self._sekcja(
             "Największe wydatki",
             [
@@ -98,6 +102,14 @@ class SerwisRaportow:
         salda = [self._linia(k.nazwa, self._konta.saldo(k.id)) for k in self._konta.wszystkie()]
         salda.append(self._linia("Razem", self._konta.saldo()))
         yield from self._sekcja("Salda kont w dniu utworzenia raportu", salda)
+
+    def _stale(self) -> list[str]:
+        """Zwraca linie stałych pozycji i kwotę, która zostaje na czysto."""
+        aktywne = [c for c in self._cykliczne.wszystkie() if c.aktywna]
+        if not aktywne:
+            return []
+        linie = [self._linia(c.nazwa, c.miesiecznie) for c in aktywne]
+        return [*linie, self._linia("Zostaje na czysto", self._cykliczne.bilans().na_czysto)]
 
     @staticmethod
     def _sekcja(tytul: str, linie: list[str]) -> Iterator[str]:

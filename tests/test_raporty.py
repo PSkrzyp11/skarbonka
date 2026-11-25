@@ -34,11 +34,19 @@ def test_tresc_raportu(serwisy, tmp_path):
     assert "Kawa czarna" not in tekst
 
 
+def test_stale_pozycje_w_raporcie(serwisy):
+    serwisy.cykliczne.dodaj(
+        Cykliczna("Woda", "wydatek", Decimal("90"), 1, 2, date.today(), Czestotliwosc.KWARTAL)
+    )
+    linie = [linia for linia in serwisy.raporty.linie(LISTOPAD) if "-30,00 zł" in linia]
+    assert [linia.split("  ")[0].strip() for linia in linie] == ["Woda", "Zostaje na czysto"]
+
+
 def test_pusty_miesiac(serwisy):
     linie = list(serwisy.raporty.linie(date(2020, 1, 1)))
     assert linie[0].endswith("styczeń 2020")
     assert not any("Zaoszczędzono" in linia for linia in linie)
-    assert linie.count("brak") == 4
+    assert linie.count("brak") == 5
 
 
 def test_nie_mozna_zapisac(serwisy, tmp_path):
@@ -69,6 +77,7 @@ def test_pulpit(serwisy, capsys):
     )
     aplikacja.pokaz_pulpit(date(2026, 11, 24))
     wyjscie = capsys.readouterr().out
+    assert "Na czysto co miesiąc: -4,33 zł" in wyjscie
     assert "Budżet Jedzenie: przekroczony, wykorzystano 200,0%." in wyjscie
-    assert "Zaległe transakcje cykliczne: 4" in wyjscie
+    assert "Stałe płatności do zaksięgowania: 4" in wyjscie
     assert "Minął termin celu Wakacje." in wyjscie

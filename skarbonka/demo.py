@@ -52,6 +52,7 @@ def wypelnij(baza: Baza, serwisy: Serwisy, dzis: date | None = None) -> None:
         _dodaj_zakupy(serwisy, kategorie, portfel.id, ror.id, start, dzis)
         _dodaj_przelewy(serwisy, ror.id, portfel.id, oszczednosci.id, start, dzis)
         _dodaj_cykliczne(serwisy, kategorie, ror.id, start, dzis)
+        _dodaj_przyszle(serwisy, kategorie, ror.id, dzis)
         _dodaj_plany(serwisy, dzis)
 
 
@@ -124,6 +125,29 @@ def _dodaj_cykliczne(
             terminy.pop()
         for termin in terminy:
             serwisy.cykliczne.zaksieguj(cykliczna, termin)
+
+
+def _dodaj_przyszle(
+    serwisy: Serwisy, kategorie: dict[str, int], ror: int, dzis: date
+) -> None:
+    """Dodaje rzadsze opłaty, których pierwszy termin dopiero nadejdzie."""
+    wzory = (
+        ("Ubezpieczenie auta", "1260", "Transport", Czestotliwosc.ROK),
+        ("Prąd", "390", "Mieszkanie", Czestotliwosc.KWARTAL),
+    )
+    for nazwa, kwota, kategoria, czestotliwosc in wzory:
+        serwisy.cykliczne.dodaj(
+            Cykliczna(
+                nazwa,
+                "wydatek",
+                Decimal(kwota),
+                ror,
+                kategorie[kategoria],
+                przesun_miesiac(dzis, 1),
+                czestotliwosc,
+            ),
+            dzis,
+        )
 
 
 def _dodaj_plany(serwisy: Serwisy, dzis: date) -> None:

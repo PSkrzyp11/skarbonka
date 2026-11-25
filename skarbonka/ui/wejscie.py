@@ -85,9 +85,13 @@ def wczytaj_date(komunikat: str = "Data", domyslna: date | None = None) -> date:
     )
 
 
-def wczytaj_termin(komunikat: str, najwczesniej: date) -> date:
+def wczytaj_termin(komunikat: str, najwczesniej: date, domyslna: date | None = None) -> date:
     """Wczytuje datę nie wcześniejszą niż podana."""
-    return wczytaj(komunikat, lambda tekst: parsuj_date(tekst, najwczesniej=najwczesniej))
+    return wczytaj(
+        _z_podpowiedzia(komunikat, formatuj_date(domyslna) if domyslna else ""),
+        lambda tekst: parsuj_date(tekst, najwczesniej=najwczesniej),
+        domyslna,
+    )
 
 
 def wczytaj_date_opcjonalna(komunikat: str) -> date | None:

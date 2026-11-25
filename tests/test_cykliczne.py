@@ -1,6 +1,7 @@
 """Testy transakcji cyklicznych i aktualizacji starej bazy."""
 
 import sqlite3
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from itertools import islice
@@ -8,7 +9,8 @@ from itertools import islice
 import pytest
 
 from skarbonka.models.cykliczna import Cykliczna
-from skarbonka.models.enums import Czestotliwosc
+from skarbonka.models.enums import Czestotliwosc, StanPlatnosci
+from skarbonka.services.cykliczne import do_zaplaty
 from skarbonka.storage.baza import Baza
 from skarbonka.wyjatki import BladWalidacji, NieprawidlowaData, NieprawidlowaKwota, RekordWUzyciu
 
@@ -32,6 +34,11 @@ def czynsz(start=date(2026, 9, 10), czestotliwosc=Czestotliwosc.MIESIAC, **pola)
             date(2026, 12, 28),
             Czestotliwosc.TYDZIEN,
             [date(2026, 12, 28), date(2027, 1, 4), date(2027, 1, 11)],
+        ),
+        (
+            date(2026, 11, 30),
+            Czestotliwosc.KWARTAL,
+            [date(2026, 11, 30), date(2027, 2, 28), date(2027, 5, 30)],
         ),
         (
             date(2024, 2, 29),
@@ -62,6 +69,87 @@ def test_niezaksiegowane_po_ostatnim():
 def test_bledne_dane(pola, wyjatek):
     with pytest.raises(wyjatek):
         czynsz(**pola)
+
+
+@pytest.mark.parametrize(
+    ("czestotliwosc", "oczekiwane"),
+    [
+        (Czestotliwosc.TYDZIEN, "-433.33"),
+        (Czestotliwosc.MIESIAC, "-100"),
+        (Czestotliwosc.KWARTAL, "-33.33"),
+        (Czestotliwosc.ROK, "-8.33"),
+    ],
+)
+def test_kwota_miesieczna(czestotliwosc, oczekiwane):
+    assert czynsz(czestotliwosc=czestotliwosc).miesiecznie == Decimal(oczekiwane)
+
+
+def test_bilans(serwisy):
+    pusty = serwisy.cykliczne.bilans()
+    assert (pusty.na_czysto, pusty.procent) == (0, None)
+    serwisy.cykliczne.dodaj(czynsz(kwota=Decimal("1500")), DZIS)
+    assert serwisy.cykliczne.bilans().na_czysto == Decimal("-1500.00")
+    pensja = czynsz(kwota=Decimal("6000"), rodzaj="przychód", kategoria_id=3)
+    pensja.nazwa = "Pensja"
+    serwisy.cykliczne.dodaj(pensja, DZIS)
+    wylaczona = czynsz(kwota=Decimal("999"))
+    wylaczona.nazwa = "Siłownia"
+    serwisy.cykliczne.przelacz(serwisy.cykliczne.dodaj(wylaczona, DZIS))
+    bilans = serwisy.cykliczne.bilans()
+    assert (bilans.przychody, bilans.wydatki) == (Decimal("6000.00"), Decimal("1500.00"))
+    assert (bilans.na_czysto, bilans.procent) == (Decimal("4500.00"), 75.0)
+    assert bilans.dziennie == Decimal("150.00")
+
+
+def test_harmonogram(serwisy):
+    serwisy.cykliczne.dodaj(czynsz(start=date(2026, 10, 10), kwota=Decimal("50")), DZIS)
+    prad = czynsz(start=date(2026, 11, 30), czestotliwosc=Czestotliwosc.KWARTAL)
+    prad.nazwa = "Prąd"
+    serwisy.cykliczne.dodaj(prad, DZIS)
+    wylaczona = czynsz()
+    wylaczona.nazwa = "Siłownia"
+    serwisy.cykliczne.przelacz(serwisy.cykliczne.dodaj(wylaczona, DZIS))
+    platnosci = serwisy.cykliczne.harmonogram(DZIS)
+    assert [(p.termin, p.stan, p.kolejna) for p in platnosci] == [
+        (date(2026, 10, 10), StanPlatnosci.CZEKA, True),
+        (date(2026, 11, 10), StanPlatnosci.CZEKA, False),
+        (date(2026, 11, 30), StanPlatnosci.NADCHODZI, True),
+    ]
+    assert do_zaplaty(platnosci) == Decimal("200")
+    serwisy.cykliczne.zaksieguj(platnosci[0].cykliczna, date(2026, 11, 10))
+    stany = [p.stan for p in serwisy.cykliczne.harmonogram(DZIS)]
+    assert stany == [StanPlatnosci.ZALATWIONA, StanPlatnosci.NADCHODZI]
+
+
+def test_zaplata_przed_terminem(serwisy):
+    cykliczna = serwisy.cykliczne.dodaj(czynsz(start=date(2026, 11, 30)), DZIS)
+    transakcja = serwisy.cykliczne.zaksieguj(cykliczna, date(2026, 11, 30), DZIS)
+    assert transakcja.data == DZIS
+    assert serwisy.cykliczne.pobierz(cykliczna.id).nastepny == date(2026, 12, 30)
+    assert serwisy.cykliczne.suma_do(date(2026, 11, 30)) == 0
+
+
+def test_zmiana(serwisy):
+    stara = serwisy.cykliczne.dodaj(czynsz(), DZIS)
+    inna = czynsz()
+    inna.nazwa = "Internet"
+    serwisy.cykliczne.dodaj(inna, DZIS)
+    serwisy.cykliczne.zmien(replace(stara, nazwa="czynsz", kwota=Decimal("250")))
+    assert serwisy.cykliczne.pobierz(stara.id).kwota == Decimal("250")
+    with pytest.raises(BladWalidacji):
+        serwisy.cykliczne.zmien(replace(stara, nazwa="internet"))
+
+
+def test_przeplanowanie():
+    stara = czynsz(start=date(2026, 8, 31), ostatnia=date(2026, 10, 31))
+    assert stara.przeplanuj(date(2026, 11, 30), Czestotliwosc.MIESIAC) == stara
+    nowa = stara.przeplanuj(date(2026, 11, 15), Czestotliwosc.KWARTAL)
+    assert list(nowa.niezaksiegowane(date(2027, 3, 1))) == [
+        date(2026, 11, 15),
+        date(2027, 2, 15),
+    ]
+    with pytest.raises(NieprawidlowaData):
+        stara.przeplanuj(date(2026, 10, 31), Czestotliwosc.MIESIAC)
 
 
 def test_zapis_i_odczyt(serwisy):

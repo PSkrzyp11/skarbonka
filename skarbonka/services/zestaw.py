@@ -111,7 +111,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         importer=Importer(baza, repo_transakcji, repo_importow, kategorie, kategoryzator),
         kopie=SerwisKopii(baza, repozytoria),
         profile=SerwisProfili(katalog / "profile_csv.json"),
-        raporty=SerwisRaportow(transakcje, konta, kategorie, budzety, cele),
+        raporty=SerwisRaportow(transakcje, konta, kategorie, budzety, cele, cykliczne),
         ustawienia=ustawienia,
     )
 

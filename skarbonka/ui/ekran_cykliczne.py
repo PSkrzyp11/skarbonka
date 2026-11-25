@@ -1,20 +1,23 @@
-"""Ekran transakcji cyklicznych."""
+"""Ekran stałych przychodów i opłat."""
 
+from dataclasses import replace
 from datetime import date
 
+from skarbonka.config import MAKS_DLUGOSC_NAZWY
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
-from skarbonka.services.cykliczne import NAJSTARSZY_START
+from skarbonka.services.cykliczne import NAJSTARSZY_START, do_zaplaty
 from skarbonka.ui import widoki
 from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
     wczytaj_kwote,
     wczytaj_nazwe,
+    wczytaj_tekst,
     wczytaj_termin,
     wybierz,
 )
-from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote
+from skarbonka.utils.formatowanie import formatuj_date, formatuj_kwote, formatuj_procent
 
 ZAKSIEGUJ, POMIN, POZNIEJ = "zaksięguj", "pomiń ten termin", "zdecyduj później"
 
@@ -22,24 +25,61 @@ ZAKSIEGUJ, POMIN, POZNIEJ = "zaksięguj", "pomiń ten termin", "zdecyduj późni
 class EkranCyklicznych(Ekran):
     """Czynsz, abonamenty, pensja i inne stałe pozycje."""
 
-    TYTUL = "Transakcje cykliczne"
+    TYTUL = "Stałe przychody i opłaty"
 
     def opcje(self) -> list[OpcjaMenu]:
         return [
-            OpcjaMenu("Lista", self.pokaz),
+            OpcjaMenu("Lista i ile zostaje na czysto", self.pokaz),
             OpcjaMenu("Dodaj", self.dodaj),
             OpcjaMenu("Zaksięguj zaległe", self.zaksieguj),
             OpcjaMenu("Włącz / wyłącz", self.przelacz),
             OpcjaMenu("Usuń", self.usun),
+            OpcjaMenu("Edytuj", self.edytuj),
+            OpcjaMenu("Płatności w tym miesiącu", self.pokaz_harmonogram),
         ]
 
     def pokaz(self) -> None:
-        """Wypisuje wszystkie transakcje cykliczne."""
+        """Wypisuje stałe pozycje i miesięczny bilans."""
         cykliczne = self.serwisy.cykliczne.wszystkie()
         if not cykliczne:
-            print("Brak transakcji cyklicznych.")
+            print("Brak stałych pozycji.")
             return
         widoki.pokaz_cykliczne(cykliczne)
+        bilans = self.serwisy.cykliczne.bilans()
+        widoki.pokaz_kwoty(
+            {
+                "Przychody miesięcznie": bilans.przychody,
+                "Opłaty miesięcznie": bilans.wydatki,
+                "Zostaje na czysto": bilans.na_czysto,
+                "Na czysto dziennie": bilans.dziennie,
+            }
+        )
+        if bilans.procent is not None:
+            print(f"To {formatuj_procent(bilans.procent)} stałych przychodów.")
+
+    def pokaz_harmonogram(self) -> None:
+        """Wypisuje terminy z bieżącego miesiąca i starsze zaległości."""
+        platnosci = self.serwisy.cykliczne.harmonogram()
+        if not platnosci:
+            print("Brak płatności w tym miesiącu.")
+            return
+        widoki.pokaz_harmonogram(platnosci)
+        print(f"Zostało do zapłaty: {formatuj_kwote(do_zaplaty(platnosci))}")
+
+    def edytuj(self) -> None:
+        """Zmienia wybraną pozycję. Enter zostawia dotychczasową wartość."""
+        stara = wybierz("Pozycja", self.serwisy.cykliczne.wszystkie())
+        nowa = replace(
+            stara,
+            nazwa=wczytaj_tekst("Nazwa", MAKS_DLUGOSC_NAZWY, stara.nazwa),
+            kwota=wczytaj_kwote(domyslna=stara.kwota),
+        )
+        czestotliwosc = wybierz("Częstotliwość", list(Czestotliwosc), stara.czestotliwosc)
+        najstarszy = date.today() - NAJSTARSZY_START
+        termin = wczytaj_termin("Następny termin", najstarszy, stara.nastepny)
+        nowa = nowa.przeplanuj(termin, czestotliwosc)
+        self.serwisy.cykliczne.zmien(nowa)
+        widoki.sukces(f"Zmieniono: {nowa}")
 
     def dodaj(self) -> None:
         """Wczytuje dane i dodaje transakcję cykliczną."""

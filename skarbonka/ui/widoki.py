@@ -15,10 +15,11 @@ from rich.text import Text
 
 from skarbonka.config import NAZWA_APLIKACJI, SLOWO_ANULUJ
 from skarbonka.models.cykliczna import Cykliczna
-from skarbonka.models.enums import StanBudzetu
+from skarbonka.models.enums import StanBudzetu, StanPlatnosci
 from skarbonka.models.konto import Konto
 from skarbonka.models.plan import Cel
 from skarbonka.models.transakcja import Transakcja
+from skarbonka.services.cykliczne import Platnosc
 from skarbonka.services.planowanie import WykonanieBudzetu
 from skarbonka.utils.formatowanie import (
     formatuj_date,
@@ -33,6 +34,12 @@ KOLORY_BUDZETU = {
     StanBudzetu.W_NORMIE: "green",
     StanBudzetu.UWAGA: "yellow",
     StanBudzetu.PRZEKROCZONY: "red",
+}
+
+KOLORY_PLATNOSCI = {
+    StanPlatnosci.ZALATWIONA: "green",
+    StanPlatnosci.CZEKA: "yellow",
+    StanPlatnosci.NADCHODZI: "",
 }
 
 konsola = Console(highlight=False)
@@ -210,18 +217,31 @@ def pokaz_cykliczne(cykliczne: list[Cykliczna]) -> None:
         ("Nazwa", "left"),
         ("Kwota", "right"),
         ("Powtarzanie", "left"),
-        ("Od", "right"),
-        ("Ostatnio", "right"),
-        ("Aktywna", "left"),
+        ("Miesięcznie", "right"),
+        ("Następny termin", "right"),
     )
     for c in cykliczne:
         tabela.add_row(
             Text(c.nazwa),
             _kwota(c.wplyw),
             str(c.czestotliwosc),
-            formatuj_date(c.start),
-            formatuj_date(c.ostatnia) if c.ostatnia else "-",
-            "tak" if c.aktywna else "nie",
+            _kwota(c.miesiecznie),
+            formatuj_date(c.nastepny) if c.aktywna else "wyłączona",
+        )
+    konsola.print(tabela)
+
+
+def pokaz_harmonogram(platnosci: list[Platnosc]) -> None:
+    """Wypisuje terminy stałych płatności i ich stan."""
+    tabela = _tabela(
+        ("Termin", "right"), ("Nazwa", "left"), ("Kwota", "right"), ("Stan", "left")
+    )
+    for p in platnosci:
+        tabela.add_row(
+            formatuj_date(p.termin),
+            Text(p.cykliczna.nazwa),
+            _kwota(p.cykliczna.wplyw),
+            Text(str(p.stan), KOLORY_PLATNOSCI[p.stan]),
         )
     konsola.print(tabela)
 
