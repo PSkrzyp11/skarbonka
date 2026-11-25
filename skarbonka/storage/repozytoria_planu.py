@@ -106,6 +106,7 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             "ostatnia": rekord.ostatnia.isoformat() if rekord.ostatnia else None,
             "aktywna": int(rekord.aktywna),
             "osoba_id": rekord.osoba_id,
+            "zmienna": int(rekord.zmienna),
         }
 
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Cykliczna:
@@ -121,6 +122,7 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             date.fromisoformat(ostatnia) if ostatnia else None,
             bool(wiersz["aktywna"]),
             wiersz["osoba_id"],
+            bool(wiersz["zmienna"]),
             wiersz["id"],
         )
 

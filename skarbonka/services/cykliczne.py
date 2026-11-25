@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 NAJSTARSZY_START = timedelta(days=366)
 SREDNIO_DNI_W_MIESIACU = 30
+ILE_DO_SREDNIEJ = 12
+RODZAJE_KWOTY = {"Zawsze taka sama": False, "Za każdym razem inna": True}
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,18 @@ class Platnosc:
     cykliczna: Cykliczna
     termin: date
     stan: StanPlatnosci
+    transakcja: Transakcja | None = None
+
+    @property
+    def wplyw(self) -> Decimal:
+        """Zwraca kwotę zaksięgowaną, a przed zaksięgowaniem przewidywaną."""
+        return self.cykliczna.wplyw if self.transakcja is None else self.transakcja.wplyw
+
+    @property
+    def do_poprawy(self) -> bool:
+        """Czy można poprawić kwotę: ostatni zaksięgowany termin zmiennej pozycji."""
+        ostatni = self.termin == self.cykliczna.ostatnia
+        return self.cykliczna.zmienna and ostatni and self.transakcja is not None
 
     @property
     def kolejna(self) -> bool:
@@ -177,8 +191,31 @@ class SerwisCyklicznych:
                 continue
             for termin in cykliczna.terminy(poczatek, koniec):
                 stan = self._stan(cykliczna, termin, dzis)
-                platnosci.append(Platnosc(cykliczna, termin, stan))
+                transakcja = None
+                if stan is StanPlatnosci.ZALATWIONA:
+                    transakcja = self._zaksiegowana(cykliczna, termin)
+                platnosci.append(Platnosc(cykliczna, termin, stan, transakcja))
         return sorted(platnosci, key=lambda p: p.termin)
+
+    def _transakcje_pozycji(self, cykliczna: Cykliczna) -> list[Transakcja]:
+        """Zwraca transakcje zaksięgowane z tej pozycji, od najstarszej."""
+        wlasne = [t for t in self._transakcje.wszystkie() if t.cykliczna_id == cykliczna.id]
+        return sorted(wlasne, key=lambda t: (t.data, t.id))
+
+    def _zaksiegowana(self, cykliczna: Cykliczna, termin: date) -> Transakcja | None:
+        """Zwraca transakcję z podanego terminu. Pominięty termin jej nie ma."""
+        poprzedni = cykliczna.poprzedni(termin)
+        for transakcja in reversed(self._transakcje_pozycji(cykliczna)):
+            if poprzedni < transakcja.data <= termin:
+                return transakcja
+        return None
+
+    def srednia(self, cykliczna: Cykliczna) -> Decimal | None:
+        """Zwraca średnią z ostatnich kwot. None, gdy są mniej niż dwie."""
+        kwoty = [t.kwota for t in self._transakcje_pozycji(cykliczna)][-ILE_DO_SREDNIEJ:]
+        if len(kwoty) < 2:
+            return None
+        return (sum(kwoty, ZERO) / len(kwoty)).quantize(GROSZ)
 
     @staticmethod
     def _stan(cykliczna: Cykliczna, termin: date, dzis: date) -> StanPlatnosci:
@@ -209,12 +246,19 @@ class SerwisCyklicznych:
         return sorted(pary, key=lambda para: para[1])
 
     def zaksieguj(
-        self, cykliczna: Cykliczna, termin: date, dzis: date | None = None
+        self,
+        cykliczna: Cykliczna,
+        termin: date,
+        dzis: date | None = None,
+        kwota: Decimal | None = None,
     ) -> Transakcja:
         """Dodaje transakcję i zapamiętuje jej termin. Całość albo nic.
 
-        Płatność zrobiona przed terminem dostaje dzisiejszą datę.
+        Płatność zrobiona przed terminem dostaje dzisiejszą datę. Podana kwota
+        zastępuje poprzednią i od tej pory jest przewidywaną.
         """
+        if kwota is not None:
+            cykliczna = replace(cykliczna, kwota=kwota)
         data = min(termin, dzis or date.today())
         with self._baza.transakcja():
             nowa = replace(cykliczna.utworz_transakcje(data), opis=self.opis(cykliczna))
@@ -222,6 +266,12 @@ class SerwisCyklicznych:
             self.pomin(cykliczna, termin)
         logger.info("Zaksięgowano %s z dnia %s", cykliczna.nazwa, termin)
         return transakcja
+
+    def popraw(self, cykliczna: Cykliczna, transakcja: Transakcja, kwota: Decimal) -> None:
+        """Zmienia kwotę zaksięgowanej transakcji i jej pozycji."""
+        with self._baza.transakcja():
+            self._transakcje.zmien(replace(transakcja, kwota=kwota))
+            self._cykliczne.zmien(replace(cykliczna, kwota=kwota))
 
     def pomin(self, cykliczna: Cykliczna, termin: date) -> None:
         """Uznaje termin za załatwiony bez dodawania transakcji."""

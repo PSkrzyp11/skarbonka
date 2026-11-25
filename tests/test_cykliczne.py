@@ -129,6 +129,37 @@ def test_zaplata_przed_terminem(serwisy):
     assert serwisy.cykliczne.suma_do(date(2026, 11, 30)) == 0
 
 
+def test_inna_kwota_w_kazdym_miesiacu(serwisy):
+    pensja = czynsz(start=date(2026, 9, 10), rodzaj="przychód", kategoria_id=3, zmienna=True)
+    serwisy.cykliczne.dodaj(pensja, DZIS)
+    assert serwisy.cykliczne.srednia(pensja) is None
+    for miesiac, kwota in ((9, "5000"), (10, "5200"), (11, "4800.01")):
+        obecna = serwisy.cykliczne.pobierz(pensja.id)
+        serwisy.cykliczne.zaksieguj(obecna, date(2026, miesiac, 10), DZIS, Decimal(kwota))
+    obecna = serwisy.cykliczne.pobierz(pensja.id)
+    kwoty = [t.kwota for t in serwisy.transakcje.wszystkie() if t.cykliczna_id == pensja.id]
+    assert kwoty == [Decimal("5000"), Decimal("5200"), Decimal("4800.01")]
+    assert obecna.zmienna is True
+    assert serwisy.cykliczne.bilans().przychody == Decimal("4800.01")
+    assert serwisy.cykliczne.srednia(obecna) == Decimal("5000.00")
+
+    (platnosc,) = serwisy.cykliczne.harmonogram(DZIS)
+    assert platnosc.do_poprawy is True
+    serwisy.cykliczne.popraw(obecna, platnosc.transakcja, Decimal("4900"))
+    (platnosc,) = serwisy.cykliczne.harmonogram(DZIS)
+    assert platnosc.wplyw == Decimal("4900")
+    assert serwisy.cykliczne.bilans().przychody == Decimal("4900.00")
+
+
+def test_pominietego_terminu_nie_mozna_poprawic(serwisy):
+    pensja = serwisy.cykliczne.dodaj(czynsz(start=date(2026, 10, 10), zmienna=True), DZIS)
+    serwisy.cykliczne.zaksieguj(pensja, date(2026, 10, 10), DZIS, Decimal("70"))
+    serwisy.cykliczne.pomin(serwisy.cykliczne.pobierz(pensja.id), date(2026, 11, 10))
+    (platnosc,) = serwisy.cykliczne.harmonogram(DZIS)
+    assert (platnosc.transakcja, platnosc.do_poprawy) == (None, False)
+    assert platnosc.wplyw == Decimal("-70")
+
+
 def test_zmiana(serwisy):
     stara = serwisy.cykliczne.dodaj(czynsz(), DZIS)
     inna = czynsz()

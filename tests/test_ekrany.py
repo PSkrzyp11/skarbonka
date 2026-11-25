@@ -170,7 +170,7 @@ def test_cele(serwisy, uruchom):
 def test_cykliczne(serwisy, uruchom):
     ekran = EkranCyklicznych(serwisy)
     dzis = f"{date.today():%d.%m.%Y}"
-    dodawanie = ("2", "Czynsz", "1", "100", "1", "2", "2", dzis)
+    dodawanie = ("2", "Czynsz", "1", "100", "", "1", "2", "2", dzis)
     wyjscie = uruchom(ekran, "1", "3", *dodawanie, "1", "3", "3", "3", "1")
     assert "Brak stałych pozycji." in wyjscie
     assert ostatnia(serwisy).cykliczna_id == 1
@@ -180,7 +180,7 @@ def test_cykliczne(serwisy, uruchom):
 
 def test_bilans_i_edycja_stalych(pelne, uruchom):
     ekran = EkranCyklicznych(pelne)
-    wyjscie = uruchom(ekran, "1", "7", "6", "1", "Wypłata", "7000", "", "", "")
+    wyjscie = uruchom(ekran, "1", "7", "6", "1", "Wypłata", "7000", "", "", "", "")
     assert "Zostaje na czysto" in wyjscie
     assert "8 226,01 zł" in wyjscie
     assert "Płatności" in wyjscie and "Pensja (Kuba)" in wyjscie
@@ -190,12 +190,23 @@ def test_bilans_i_edycja_stalych(pelne, uruchom):
     assert pelne.cykliczne.pobierz(1).osoba_id == 1
 
 
+def test_inna_kwota_co_miesiac(serwisy, uruchom):
+    ekran = EkranCyklicznych(serwisy)
+    dzis = f"{date.today():%d.%m.%Y}"
+    wyjscie = uruchom(ekran, "2", "Pensja", "2", "4000", "2", "1", "2", dzis, "3", "1", "4321", "1")
+    assert ostatnia(serwisy).kwota == 4321
+    assert "za każdym razem inna kwota" in wyjscie
+    assert serwisy.cykliczne.bilans().przychody == 4321
+    uruchom(ekran, "6", "", "", "1", "", "")
+    assert serwisy.cykliczne.pobierz(1).zmienna is False
+
+
 def test_osoby(serwisy, uruchom):
     osoby = EkranOsob(serwisy)
     assert "Brak osób." in uruchom(osoby, "1", "2", "Ola", "2", "ola", "Jan", "3", "2", "Janek")
     assert [o.nazwa for o in serwisy.osoby.wszystkie()] == ["Ola", "Janek"]
     dzis = f"{date.today():%d.%m.%Y}"
-    czynsz = ("Czynsz", "1", "700", "1", "2", "2", dzis)
+    czynsz = ("Czynsz", "1", "700", "", "1", "2", "2", dzis)
     stale = EkranCyklicznych(serwisy)
     wyjscie = uruchom(stale, "2", "2", *czynsz, "2", "3", *czynsz, "2", "2", "czynsz", "anuluj")
     assert "jest już zajęta" in wyjscie

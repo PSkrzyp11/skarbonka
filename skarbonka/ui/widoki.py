@@ -243,11 +243,13 @@ def pokaz_cykliczne(grupy: list[GrupaStalych]) -> None:
             tabela.add_row(
                 Text(c.nazwa),
                 _kwota(c.wplyw),
-                str(c.czestotliwosc),
+                str(c.czestotliwosc) + (" *" if c.zmienna else ""),
                 _kwota(c.miesiecznie),
                 formatuj_date(c.nastepny) if c.aktywna else "wyłączona",
             )
     konsola.print(tabela)
+    if any(c.zmienna for grupa in grupy for c in grupa.stale):
+        print("  * za każdym razem inna kwota, tu ostatnio wpisana")
 
 
 def pokaz_harmonogram(platnosci: list[Platnosc], opisz: Callable[[Cykliczna], str]) -> None:
@@ -259,7 +261,7 @@ def pokaz_harmonogram(platnosci: list[Platnosc], opisz: Callable[[Cykliczna], st
         tabela.add_row(
             formatuj_date(p.termin),
             Text(opisz(p.cykliczna)),
-            _kwota(p.cykliczna.wplyw),
+            _kwota(p.wplyw),
             Text(str(p.stan), KOLORY_PLATNOSCI[p.stan]),
         )
     konsola.print(tabela)

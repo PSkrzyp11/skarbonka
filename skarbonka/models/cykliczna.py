@@ -24,7 +24,10 @@ KLASY_CYKLICZNE = {klasa.RODZAJ: klasa for klasa in (Wydatek, Przychod)}
 
 @dataclass
 class Cykliczna:
-    """Wzór, według którego powstają kolejne transakcje."""
+    """Wzór, według którego powstają kolejne transakcje.
+
+    Pozycja zmienna, np. pensja godzinowa, pamięta ostatnio wpisaną kwotę.
+    """
 
     nazwa: str
     rodzaj: str
@@ -36,6 +39,7 @@ class Cykliczna:
     ostatnia: date | None = None
     aktywna: bool = True
     osoba_id: int | None = None
+    zmienna: bool = False
     id: int | None = None
 
     def __post_init__(self) -> None:
@@ -76,6 +80,10 @@ class Cykliczna:
         """Generator: oddaje terminy po ostatnim zaksięgowanym."""
         od = self.start if self.ostatnia is None else self.ostatnia + timedelta(days=1)
         yield from self.terminy(od, do)
+
+    def poprzedni(self, termin: date) -> date:
+        """Zwraca termin tuż przed podanym albo najwcześniejszą możliwą datę."""
+        return max((t for t in self.terminy(self.start, termin) if t < termin), default=date.min)
 
     @property
     def nastepny(self) -> date:

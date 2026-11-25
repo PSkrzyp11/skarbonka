@@ -6,7 +6,7 @@ from datetime import date
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
-from skarbonka.services.cykliczne import NAJSTARSZY_START, do_zaplaty
+from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY, do_zaplaty
 from skarbonka.ui import widoki
 from skarbonka.ui.ekran_osoby import EkranOsob
 from skarbonka.ui.menu import Ekran, OpcjaMenu
@@ -74,6 +74,7 @@ class EkranCyklicznych(Ekran):
             stara,
             nazwa=wczytaj_tekst("Nazwa", MAKS_DLUGOSC_NAZWY, stara.nazwa),
             kwota=wczytaj_kwote(domyslna=stara.kwota),
+            zmienna=self._wybierz_rodzaj_kwoty(stara.zmienna),
         )
         czestotliwosc = wybierz("Częstotliwość", list(Czestotliwosc), stara.czestotliwosc)
         najstarszy = date.today() - NAJSTARSZY_START
@@ -91,6 +92,7 @@ class EkranCyklicznych(Ekran):
         )
         rodzaj = wybierz("Rodzaj", list(KLASY_CYKLICZNE))
         kwota = wczytaj_kwote()
+        zmienna = self._wybierz_rodzaj_kwoty()
         konto = wybierz("Konto", self.serwisy.konta.wszystkie())
         pasujace = self.serwisy.kategorie.pasujace(KLASY_CYKLICZNE[rodzaj])
         kategoria = wybierz("Kategoria", pasujace)
@@ -106,9 +108,15 @@ class EkranCyklicznych(Ekran):
                 start,
                 czestotliwosc,
                 osoba_id=osoba_id,
+                zmienna=zmienna,
             )
         )
         widoki.sukces(f"Dodano: {nazwa}")
+
+    def _wybierz_rodzaj_kwoty(self, zmienna: bool = False) -> bool:
+        """Pyta, czy kwota jest stała. Zwraca True dla zmiennej."""
+        domyslna = next(nazwa for nazwa, czy in RODZAJE_KWOTY.items() if czy == zmienna)
+        return RODZAJE_KWOTY[wybierz("Rodzaj kwoty", list(RODZAJE_KWOTY), domyslna)]
 
     def _wybierz_osobe(self, domyslna: int | None = None) -> int | None:
         """Pyta o osobę, jeśli jakieś są. Zwraca jej numer albo None dla wspólnych."""
@@ -136,7 +144,8 @@ class EkranCyklicznych(Ekran):
             opis = f"{formatuj_date(termin)} {nazwa} {formatuj_kwote(cykliczna.wplyw)}"
             decyzja = wybierz(opis, [ZAKSIEGUJ, POMIN, POZNIEJ], ZAKSIEGUJ)
             if decyzja == ZAKSIEGUJ:
-                transakcja = self.serwisy.cykliczne.zaksieguj(cykliczna, termin)
+                kwota = wczytaj_kwote(domyslna=cykliczna.kwota) if cykliczna.zmienna else None
+                transakcja = self.serwisy.cykliczne.zaksieguj(cykliczna, termin, kwota=kwota)
                 widoki.sukces(f"Dodano: {transakcja}")
             elif decyzja == POMIN:
                 self.serwisy.cykliczne.pomin(cykliczna, termin)

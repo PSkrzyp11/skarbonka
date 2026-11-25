@@ -135,7 +135,7 @@ def _dodaj_przyszle(
     """Dodaje drugą osobę i pozycje, których pierwszy termin dopiero nadejdzie."""
     kuba, ola = serwisy.osoby.wszystkie()[0].id, serwisy.osoby.dodaj("Ola").id
     wzory = (
-        ("Pensja", "przychód", "4300", "Wynagrodzenie", Czestotliwosc.MIESIAC, ola),
+        ("Zlecenia", "przychód", "4300", "Wynagrodzenie", Czestotliwosc.MIESIAC, ola),
         ("Siłownia", "wydatek", "129", "Zdrowie", Czestotliwosc.MIESIAC, ola),
         ("Ubezpieczenie auta", "wydatek", "1260", "Transport", Czestotliwosc.ROK, kuba),
         ("Prąd", "wydatek", "390", "Mieszkanie", Czestotliwosc.KWARTAL, None),
@@ -151,6 +151,7 @@ def _dodaj_przyszle(
                 przesun_miesiac(dzis, 1),
                 czestotliwosc,
                 osoba_id=osoba,
+                zmienna=nazwa in ("Zlecenia", "Prąd"),
             ),
             dzis,
         )
