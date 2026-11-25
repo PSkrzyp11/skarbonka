@@ -7,7 +7,7 @@ import customtkinter as ctk
 from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz
 from skarbonka.gui.formularze_stalych import edycja_stalej, kwota_terminu, nowa_stala
-from skarbonka.gui.karta_osob import NUMER_WSZYSTKICH, KartaOsob
+from skarbonka.gui.karta_osob import NUMER_WSPOLNYCH, NUMER_WSZYSTKICH, KartaOsob
 from skarbonka.gui.lista import Lista, Naglowek, Pozycja
 from skarbonka.gui.pozycje import kwota_ze_znakiem
 from skarbonka.gui.skladniki import (
@@ -26,7 +26,14 @@ from skarbonka.gui.widok import Widok
 from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc, StanPlatnosci
 from skarbonka.models.transakcja import Przychod, Wydatek
-from skarbonka.services.cykliczne import BilansStalych, Platnosc, do_zaplaty, policz_bilans
+from skarbonka.services.bilans_stalych import (
+    BilansStalych,
+    GrupaStalych,
+    Platnosc,
+    Udzial,
+    do_zaplaty,
+    policz_bilans,
+)
 from skarbonka.services.uwagi import STALE
 from skarbonka.utils.formatowanie import (
     formatuj_date,
@@ -125,10 +132,9 @@ class WidokStale(Widok):
         self._pusty.pack_forget()
         self._siatka.pack(fill="both", expand=True)
         self._pokaz_osoby()
-        stale = [c for c in stale if self.osoby.pasuje(c)]
-        bilans = policz_bilans(stale)
-        self._pokaz_bilans(bilans)
-        self.tabela.wypelnij(self._pozycje(stale, bilans))
+        grupa = self.osoby.grupa()
+        self._pokaz_bilans(grupa.bilans)
+        self.tabela.wypelnij(self._pozycje(grupa))
         self._wybrano()
         self._pokaz_platnosci()
 
@@ -147,7 +153,9 @@ class WidokStale(Widok):
     def _pokaz_bilans(self, bilans: BilansStalych) -> None:
         """Wypełnia zieloną kartę."""
         self.na_czysto.configure(text=kwota_ze_znakiem(formatuj_kwote(bilans.na_czysto)))
-        if bilans.procent is None:
+        if self.osoby.wybrana == NUMER_WSPOLNYCH:
+            opis = "Dzieli się po równo między osoby"
+        elif bilans.procent is None:
             opis = "Dodaj stały przychód, żeby zobaczyć, ile zostaje"
         elif bilans.na_czysto < 0:
             opis = "Opłaty są wyższe niż stałe przychody"
@@ -169,22 +177,25 @@ class WidokStale(Widok):
             etykieta(kolumna, nazwa, 12, kolor=styl.MARKA_TEKST).pack(anchor=bok)
             etykieta(kolumna, formatuj_kwote(kwota), 18, "liczby", styl.BIALY).pack(anchor=bok)
 
-    def _pozycje(self, stale: list[Cykliczna], bilans: BilansStalych) -> list[Pozycja | Naglowek]:
-        """Zwraca pozycje w dwóch grupach, od najwyższej kwoty miesięcznej."""
+    def _pozycje(self, grupa: GrupaStalych) -> list[Pozycja | Naglowek]:
+        """Zwraca przychody, opłaty i części wspólnych, od najwyższej kwoty miesięcznej."""
+        przychody = [u for u in grupa.wlasne if u.cykliczna.rodzaj == Przychod.RODZAJ]
+        oplaty = [u for u in grupa.wlasne if u.cykliczna.rodzaj == Wydatek.RODZAJ]
+        sekcje = [("Przychody", przychody), ("Opłaty", oplaty)]
+        if grupa.wspolne:
+            sekcje.append((f"Część wspólnych ({grupa.wspolne[0].ulamek})", grupa.wspolne))
         wynik: list[Pozycja | Naglowek] = []
-        for nazwa, rodzaj, suma in (
-            ("Przychody", Przychod.RODZAJ, bilans.przychody),
-            ("Opłaty", Wydatek.RODZAJ, bilans.wydatki),
-        ):
-            grupa = [c for c in stale if c.rodzaj == rodzaj]
-            if grupa:
-                wynik.append(Naglowek(nazwa, f"{formatuj_kwote(suma)} miesięcznie"))
-            grupa.sort(key=lambda c: (not c.aktywna, -abs(c.miesiecznie)))
-            wynik.extend(self._pozycja(c) for c in grupa)
+        for nazwa, udzialy in sekcje:
+            if udzialy:
+                suma = kwota_ze_znakiem(formatuj_kwote(policz_bilans(udzialy).na_czysto))
+                wynik.append(Naglowek(nazwa, f"{suma} miesięcznie"))
+            udzialy.sort(key=lambda u: (not u.cykliczna.aktywna, -abs(u.miesiecznie)))
+            wynik.extend(self._pozycja(u) for u in udzialy)
         return wynik
 
-    def _pozycja(self, stala: Cykliczna) -> Pozycja:
-        """Zamienia stałą pozycję na element listy."""
+    def _pozycja(self, udzial: Udzial) -> Pozycja:
+        """Zamienia stałą pozycję albo jej część na element listy."""
+        stala = udzial.cykliczna
         kategoria = self.serwisy.kategorie.nazwy().get(stala.kategoria_id, "")
         ikona = ikony.dla_nazwy(stala.nazwa, ikony.dla_nazwy(kategoria, ikony.POWTARZANIE))
         if stala.aktywna:
@@ -197,14 +208,17 @@ class WidokStale(Widok):
             ikona,
             stala.nazwa,
             f"{stala.powtarzanie}  ·  {stan}{self._czyja(stala)}",
-            kwota_ze_znakiem(formatuj_kwote(stala.wplyw)),
-            self._podpis(stala),
+            kwota_ze_znakiem(formatuj_kwote(udzial.wplyw)),
+            self._podpis(udzial),
             kolor,
             wyrozniona=stala.aktywna and stala.wplyw > 0,
         )
 
-    def _podpis(self, stala: Cykliczna) -> str:
-        """Zwraca podpis pod kwotą: średnią zmiennej albo przeliczenie na miesiąc."""
+    def _podpis(self, udzial: Udzial) -> str:
+        """Zwraca podpis pod kwotą: całość wspólnej, średnią albo kwotę na miesiąc."""
+        stala = udzial.cykliczna
+        if udzial.wspolny:
+            return f"z {formatuj_kwote(stala.kwota)}"
         if stala.zmienna:
             srednia = self.serwis.srednia(stala)
             return "kwota zmienna" if srednia is None else f"średnio {formatuj_kwote(srednia)}"
@@ -221,7 +235,7 @@ class WidokStale(Widok):
     def _pokaz_platnosci(self) -> None:
         """Wypisuje terminy z tego miesiąca i starsze zaległości."""
         wyczysc(self._platnosci)
-        platnosci = [p for p in self.serwis.harmonogram() if self.osoby.pasuje(p.cykliczna)]
+        platnosci = self.osoby.grupa().platnosci(self.serwis.harmonogram())
         zostalo = do_zaplaty(platnosci)
         if zostalo:
             stan = f"do zapłaty {formatuj_kwote(zostalo)}"
@@ -241,7 +255,10 @@ class WidokStale(Widok):
         etykieta(self._platnosci, tekst, kolor=styl.TEKST_DRUGI).pack(anchor="w", padx=4, pady=8)
 
     def _dodaj_platnosc(self, platnosc: Platnosc) -> None:
-        """Dodaje jeden termin. Przyciski ma tylko najbliższy termin każdej pozycji."""
+        """Dodaje jeden termin. Przyciski ma tylko najbliższy termin każdej pozycji.
+
+        Wspólną płatność księguje się w całości, dlatego u osoby nie ma przycisków.
+        """
         stala, termin, stan = platnosc.cykliczna, platnosc.termin, platnosc.stan
         ikona, tlo, kolor = WYGLAD_STANOW[stan]
         gotowa = stan is StanPlatnosci.ZALATWIONA
@@ -260,10 +277,9 @@ class WidokStale(Widok):
         nazwa = etykieta(napisy, self.serwis.opis(stala), 14, "mocny")
         nazwa.configure(wraplength=SZEROKOSC_BOCZNA - 210)
         nazwa.pack(anchor="w")
-        etykieta(napisy, f"{formatuj_date(termin)}  ·  {stan}", 12, kolor=styl.TEKST_DRUGI).pack(
-            anchor="w"
-        )
-        if platnosc.kolejna or platnosc.do_poprawy:
+        opis = f"{formatuj_date(termin)}  ·  {stan}" + ("  ·  wspólna" if platnosc.wspolna else "")
+        etykieta(napisy, opis, 12, kolor=styl.TEKST_DRUGI).pack(anchor="w")
+        if not platnosc.wspolna and (platnosc.kolejna or platnosc.do_poprawy):
             self._dodaj_przyciski(platnosc)
 
     def _dodaj_przyciski(self, platnosc: Platnosc) -> None:

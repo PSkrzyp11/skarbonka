@@ -10,7 +10,8 @@ from skarbonka.gui.formularz import Formularz, Pole
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, MAKS_ODSTEP, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
-from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY, Platnosc
+from skarbonka.services.bilans_stalych import Platnosc
+from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY
 from skarbonka.services.osoby import WSPOLNE
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac
 from skarbonka.utils.walidacja import parsuj_date, parsuj_kwote, parsuj_liczbe, sprawdz_tekst

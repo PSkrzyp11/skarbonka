@@ -9,10 +9,8 @@ from skarbonka.gui.lista import Lista, Pozycja
 from skarbonka.gui.pozycje import kwota_ze_znakiem
 from skarbonka.gui.skladniki import Karta, przycisk_ikony, ramka
 from skarbonka.gui.zakladka_listy import parser_nazwy
-from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.osoba import Osoba
-from skarbonka.services.cykliczne import BilansStalych
-from skarbonka.services.osoby import WSZYSCY
+from skarbonka.services.bilans_stalych import GrupaStalych, podziel
 from skarbonka.utils.formatowanie import formatuj_kwote
 
 if TYPE_CHECKING:
@@ -20,6 +18,7 @@ if TYPE_CHECKING:
 
 NUMER_WSZYSTKICH = 0
 NUMER_WSPOLNYCH = -1
+IKONY = {NUMER_WSZYSTKICH: ikony.LUDZIE, NUMER_WSPOLNYCH: ikony.DOM}
 NAJWIECEJ_WIERSZY = 4
 WYSOKOSC_TYTULU = 30
 
@@ -32,6 +31,7 @@ class KartaOsob(Karta):
         self.okno = okno
         self.serwis = okno.serwisy.osoby
         self.wybrana = NUMER_WSZYSTKICH
+        self._grupy: dict[int, GrupaStalych] = {}
         self._po_wyborze = po_wyborze
         self.gora.configure(height=WYSOKOSC_TYTULU)
         self.gora.pack_propagate(False)
@@ -44,17 +44,10 @@ class KartaOsob(Karta):
     def odswiez(self) -> None:
         """Wczytuje osoby i ich bilanse."""
         stale = self.okno.serwisy.cykliczne
-        pozycje = [self._pozycja(NUMER_WSZYSTKICH, ikony.LUDZIE, WSZYSCY, stale.bilans())]
-        for grupa in stale.grupy():
-            if grupa.osoba_id is None:
-                pozycje.append(
-                    self._pozycja(NUMER_WSPOLNYCH, ikony.DOM, grupa.nazwa, grupa.bilans)
-                )
-            else:
-                pozycje.append(
-                    self._pozycja(grupa.osoba_id, ikony.OSOBA, grupa.nazwa, grupa.bilans)
-                )
-        if self.wybrana not in {p.id for p in pozycje}:
+        self._grupy = {NUMER_WSZYSTKICH: stale.grupa_wszystkich()}
+        self._grupy |= {g.osoba_id or NUMER_WSPOLNYCH: g for g in stale.grupy()}
+        pozycje = [self._pozycja(numer, grupa) for numer, grupa in self._grupy.items()]
+        if self.wybrana not in self._grupy:
             self.wybrana = NUMER_WSZYSTKICH
         self.lista.ustaw_wysokosc(min(len(pozycje), NAJWIECEJ_WIERSZY))
         self.lista.wypelnij(pozycje)
@@ -64,22 +57,27 @@ class KartaOsob(Karta):
         else:
             self._akcje.pack_forget()
 
-    @staticmethod
-    def _pozycja(numer: int, ikona: str, nazwa: str, bilans: BilansStalych) -> Pozycja:
-        """Zamienia bilans na wiersz listy."""
+    def _pozycja(self, numer: int, grupa: GrupaStalych) -> Pozycja:
+        """Zamienia grupę na wiersz listy."""
+        bilans = grupa.bilans
+        podpis = f"z {formatuj_kwote(bilans.przychody)}" if bilans.przychody else ""
+        ile_osob = len(self._grupy) - len({NUMER_WSZYSTKICH, NUMER_WSPOLNYCH})
+        if numer == NUMER_WSPOLNYCH and ile_osob > 1:
+            na_osobe = podziel(bilans.na_czysto, ile_osob)[0]
+            podpis = kwota_ze_znakiem(f"po {formatuj_kwote(na_osobe)}")
         return Pozycja(
             numer,
-            ikona,
-            nazwa,
+            IKONY.get(numer, ikony.OSOBA),
+            grupa.nazwa,
             f"opłaty {formatuj_kwote(bilans.wydatki)}",
             kwota_ze_znakiem(formatuj_kwote(bilans.na_czysto)),
-            f"z {formatuj_kwote(bilans.przychody)}" if bilans.przychody else "",
+            podpis,
             styl.ZLY if bilans.na_czysto < 0 else styl.TEKST,
         )
 
-    def pasuje(self, stala: Cykliczna) -> bool:
-        """Sprawdza, czy pozycja należy do wybranej osoby."""
-        return self.wybrana == NUMER_WSZYSTKICH or stala.osoba_id == self.osoba_id()
+    def grupa(self) -> GrupaStalych:
+        """Zwraca pozycje wybranego wiersza."""
+        return self._grupy[self.wybrana]
 
     def osoba_id(self) -> int | None:
         """Zwraca numer wybranej osoby albo None."""
@@ -87,7 +85,7 @@ class KartaOsob(Karta):
 
     def nazwa_wybranej(self) -> str:
         """Zwraca nazwę wybranego wiersza."""
-        return self.lista.pozycja(self.wybrana).tytul
+        return self.grupa().nazwa
 
     def _wybrano(self) -> None:
         numer = self.lista.zaznaczony() or NUMER_WSZYSTKICH

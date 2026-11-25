@@ -363,6 +363,11 @@ def test_osoby(okno, odpowiedz):
     assert serwisy.cykliczne.pobierz(1).osoba_id is None
     widok.osoby.lista.zaznacz(-1)
     assert [p.id for p in widok.tabela.pozycje()] == [1]
+    assert widok.osoby.lista.pozycja(-1).podpis == kwota_ze_znakiem("po -350,00 zł")
+    widok.osoby.lista.zaznacz(1)
+    (czesc,) = widok.tabela.pozycje()
+    assert (czesc.wartosc, czesc.podpis) == (kwota_ze_znakiem("-350,00 zł"), "z 700,00 zł")
+    assert widok._do_zaplaty.cget("text") == "do zapłaty 350,00 zł"
 
     widok.osoby.lista.zaznacz(2)
     for tak, zostaje in ((False, 3), (True, 1)):
