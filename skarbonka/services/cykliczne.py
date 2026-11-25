@@ -1,6 +1,7 @@
 """Stałe przychody i opłaty: bilans miesiąca, harmonogram i księgowanie."""
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
@@ -8,6 +9,7 @@ from decimal import Decimal
 from skarbonka.models.cykliczna import GROSZ, Cykliczna
 from skarbonka.models.enums import StanPlatnosci
 from skarbonka.models.transakcja import ZERO, Transakcja
+from skarbonka.services.osoby import WSPOLNE, SerwisOsob
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.storage.baza import Baza
 from skarbonka.storage.repozytoria_planu import RepozytoriumCyklicznych
@@ -46,6 +48,29 @@ class BilansStalych:
         return float(self.na_czysto / self.przychody * 100)
 
 
+def policz_bilans(stale: Iterable[Cykliczna]) -> BilansStalych:
+    """Zwraca miesięczny bilans aktywnych pozycji."""
+    kwoty = [c.miesiecznie for c in stale if c.aktywna]
+    return BilansStalych(
+        przychody=sum((k for k in kwoty if k > 0), ZERO),
+        wydatki=-sum((k for k in kwoty if k < 0), ZERO),
+    )
+
+
+@dataclass(frozen=True)
+class GrupaStalych:
+    """Stałe pozycje jednej osoby albo wspólne."""
+
+    nazwa: str
+    osoba_id: int | None
+    stale: list[Cykliczna]
+
+    @property
+    def bilans(self) -> BilansStalych:
+        """Zwraca bilans pozycji z tej grupy."""
+        return policz_bilans(self.stale)
+
+
 @dataclass(frozen=True)
 class Platnosc:
     """Jeden termin stałej pozycji w harmonogramie."""
@@ -76,11 +101,16 @@ class SerwisCyklicznych:
     """Zasady dotyczące transakcji cyklicznych."""
 
     def __init__(
-        self, baza: Baza, cykliczne: RepozytoriumCyklicznych, transakcje: SerwisTransakcji
+        self,
+        baza: Baza,
+        cykliczne: RepozytoriumCyklicznych,
+        transakcje: SerwisTransakcji,
+        osoby: SerwisOsob,
     ) -> None:
         self._baza = baza
         self._cykliczne = cykliczne
         self._transakcje = transakcje
+        self._osoby = osoby
 
     def wszystkie(self) -> list[Cykliczna]:
         """Zwraca wszystkie transakcje cykliczne."""
@@ -90,31 +120,47 @@ class SerwisCyklicznych:
         """Zwraca transakcję cykliczną o podanym numerze."""
         return self._cykliczne.pobierz(numer)
 
-    def sprawdz_nazwe(self, nazwa: str, pomin_id: int | None = None) -> None:
-        """Zgłasza błąd, gdy nazwa jest już zajęta przez inną pozycję."""
-        zajete = {c.nazwa for c in self.wszystkie() if c.id != pomin_id}
+    def grupy(self) -> list[GrupaStalych]:
+        """Dzieli pozycje na osoby. Wspólne są na końcu, o ile istnieją."""
+        stale = self.wszystkie()
+        grupy = [
+            GrupaStalych(osoba.nazwa, osoba.id, [c for c in stale if c.osoba_id == osoba.id])
+            for osoba in self._osoby.wszystkie()
+        ]
+        wspolne = [c for c in stale if c.osoba_id is None]
+        return grupy + ([GrupaStalych(WSPOLNE, None, wspolne)] if wspolne else [])
+
+    def opis(self, cykliczna: Cykliczna) -> str:
+        """Zwraca nazwę pozycji, a przy cudzej także osobę, np. Czynsz (Ola)."""
+        if cykliczna.osoba_id is None:
+            return cykliczna.nazwa
+        return f"{cykliczna.nazwa} ({self._osoby.pobierz(cykliczna.osoba_id)})"
+
+    def sprawdz_nazwe(
+        self, nazwa: str, osoba_id: int | None = None, pomin_id: int | None = None
+    ) -> None:
+        """Zgłasza błąd, gdy ta sama osoba ma już inną pozycję o tej nazwie."""
+        zajete = {
+            c.nazwa for c in self.wszystkie() if c.osoba_id == osoba_id and c.id != pomin_id
+        }
         sprawdz_unikalnosc(nazwa, zajete)
 
     def dodaj(self, cykliczna: Cykliczna, dzis: date | None = None) -> Cykliczna:
         """Dodaje transakcję cykliczną o niepowtarzalnej nazwie."""
-        self.sprawdz_nazwe(cykliczna.nazwa)
+        self.sprawdz_nazwe(cykliczna.nazwa, cykliczna.osoba_id)
         if cykliczna.start < (dzis or date.today()) - NAJSTARSZY_START:
             raise NieprawidlowaData("Pierwszy termin może być najwyżej rok wstecz.")
         return self._cykliczne.dodaj(cykliczna)
 
     def zmien(self, zmieniona: Cykliczna) -> None:
         """Zapisuje zmienioną pozycję. Wcześniejsze transakcje zostają bez zmian."""
-        self.sprawdz_nazwe(zmieniona.nazwa, zmieniona.id)
+        self.sprawdz_nazwe(zmieniona.nazwa, zmieniona.osoba_id, zmieniona.id)
         self._cykliczne.zmien(zmieniona)
         logger.info("Zmieniono stałą pozycję %s", zmieniona.nazwa)
 
     def bilans(self) -> BilansStalych:
-        """Zwraca miesięczny bilans aktywnych pozycji."""
-        kwoty = [c.miesiecznie for c in self.wszystkie() if c.aktywna]
-        return BilansStalych(
-            przychody=sum((k for k in kwoty if k > 0), ZERO),
-            wydatki=-sum((k for k in kwoty if k < 0), ZERO),
-        )
+        """Zwraca miesięczny bilans wszystkich osób razem."""
+        return policz_bilans(self.wszystkie())
 
     def harmonogram(self, dzis: date | None = None) -> list[Platnosc]:
         """Zwraca terminy bieżącego miesiąca oraz starsze zaległości."""
@@ -171,7 +217,8 @@ class SerwisCyklicznych:
         """
         data = min(termin, dzis or date.today())
         with self._baza.transakcja():
-            transakcja = self._transakcje.dodaj(cykliczna.utworz_transakcje(data))
+            nowa = replace(cykliczna.utworz_transakcje(data), opis=self.opis(cykliczna))
+            transakcja = self._transakcje.dodaj(nowa)
             self.pomin(cykliczna, termin)
         logger.info("Zaksięgowano %s z dnia %s", cykliczna.nazwa, termin)
         return transakcja

@@ -4,6 +4,7 @@ Teksty od użytkownika trafiają do obiektów Text, żeby nawiasy kwadratowe
 w opisie nie zostały potraktowane jako polecenia formatowania.
 """
 
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 
@@ -19,7 +20,7 @@ from skarbonka.models.enums import StanBudzetu, StanPlatnosci
 from skarbonka.models.konto import Konto
 from skarbonka.models.plan import Cel
 from skarbonka.models.transakcja import Transakcja
-from skarbonka.services.cykliczne import Platnosc
+from skarbonka.services.cykliczne import BilansStalych, GrupaStalych, Platnosc
 from skarbonka.services.planowanie import WykonanieBudzetu
 from skarbonka.utils.formatowanie import (
     formatuj_date,
@@ -211,8 +212,22 @@ def pokaz_cele(cele: list[Cel], dzis: date) -> None:
     konsola.print(tabela)
 
 
-def pokaz_cykliczne(cykliczne: list[Cykliczna]) -> None:
-    """Wypisuje wzory transakcji cyklicznych."""
+def pokaz_osoby(grupy: list[GrupaStalych], razem: BilansStalych) -> None:
+    """Wypisuje przychody, opłaty i kwotę na czysto każdej osoby."""
+    tabela = _tabela(
+        ("Osoba", "left"), ("Przychody", "right"), ("Opłaty", "right"), ("Na czysto", "right")
+    )
+    for nazwa, bilans in [*((g.nazwa, g.bilans) for g in grupy), ("Razem", razem)]:
+        if bilans is razem:
+            tabela.add_section()
+        tabela.add_row(
+            Text(nazwa), _kwota(bilans.przychody), _kwota(bilans.wydatki), _kwota(bilans.na_czysto)
+        )
+    konsola.print(tabela)
+
+
+def pokaz_cykliczne(grupy: list[GrupaStalych]) -> None:
+    """Wypisuje stałe pozycje. Przy kilku osobach każda ma swój nagłówek."""
     tabela = _tabela(
         ("Nazwa", "left"),
         ("Kwota", "right"),
@@ -220,18 +235,22 @@ def pokaz_cykliczne(cykliczne: list[Cykliczna]) -> None:
         ("Miesięcznie", "right"),
         ("Następny termin", "right"),
     )
-    for c in cykliczne:
-        tabela.add_row(
-            Text(c.nazwa),
-            _kwota(c.wplyw),
-            str(c.czestotliwosc),
-            _kwota(c.miesiecznie),
-            formatuj_date(c.nastepny) if c.aktywna else "wyłączona",
-        )
+    for grupa in grupy:
+        if len(grupy) > 1:
+            tabela.add_section()
+            tabela.add_row(Text(grupa.nazwa, "bold"))
+        for c in grupa.stale:
+            tabela.add_row(
+                Text(c.nazwa),
+                _kwota(c.wplyw),
+                str(c.czestotliwosc),
+                _kwota(c.miesiecznie),
+                formatuj_date(c.nastepny) if c.aktywna else "wyłączona",
+            )
     konsola.print(tabela)
 
 
-def pokaz_harmonogram(platnosci: list[Platnosc]) -> None:
+def pokaz_harmonogram(platnosci: list[Platnosc], opisz: Callable[[Cykliczna], str]) -> None:
     """Wypisuje terminy stałych płatności i ich stan."""
     tabela = _tabela(
         ("Termin", "right"), ("Nazwa", "left"), ("Kwota", "right"), ("Stan", "left")
@@ -239,7 +258,7 @@ def pokaz_harmonogram(platnosci: list[Platnosc]) -> None:
     for p in platnosci:
         tabela.add_row(
             formatuj_date(p.termin),
-            Text(p.cykliczna.nazwa),
+            Text(opisz(p.cykliczna)),
             _kwota(p.cykliczna.wplyw),
             Text(str(p.stan), KOLORY_PLATNOSCI[p.stan]),
         )

@@ -12,8 +12,9 @@ from skarbonka.models.kurs import Kurs
 from skarbonka.models.transakcja import Wydatek
 from skarbonka.services import kopie as modul_kopii
 from skarbonka.services.zestaw import dodaj_dane_startowe, utworz_serwisy
-from skarbonka.storage.baza import TABELE, Baza
+from skarbonka.storage.baza import Baza
 from skarbonka.storage.repozytoria_planu import RepozytoriumKursow
+from skarbonka.storage.schemat import TABELE
 from skarbonka.ui.ratunek import otworz_baze
 from skarbonka.wyjatki import BladPliku, UszkodzonyPlik
 
@@ -64,6 +65,7 @@ def test_kopia_obejmuje_wszystkie_tabele(serwisy_plikowe):
     cykliczna = Cykliczna(
         "Czynsz", "wydatek", Decimal("5"), 1, 1, date.today(), Czestotliwosc.MIESIAC
     )
+    cykliczna.osoba_id = s.osoby.dodaj("Ola").id
     s.cykliczne.zaksieguj(s.cykliczne.dodaj(cykliczna), date.today())
     RepozytoriumKursow(s.kopie._baza).dodaj(Kurs("EUR", dzien, Decimal("4.25")))
 

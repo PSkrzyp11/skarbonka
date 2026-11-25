@@ -9,6 +9,7 @@ from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.kategoria import Regula
 from skarbonka.models.kurs import Kurs
+from skarbonka.models.osoba import Osoba
 from skarbonka.models.plan import Budzet, Cel, WplataCelu
 from skarbonka.storage.repozytoria import Repozytorium, na_grosze, z_groszy
 
@@ -76,6 +77,18 @@ class RepozytoriumWplat(Repozytorium[WplataCelu]):
         )
 
 
+class RepozytoriumOsob(Repozytorium[Osoba]):
+    """Tabela osób."""
+
+    TABELA = "osoby"
+
+    def _na_wiersz(self, rekord: Osoba) -> dict[str, Any]:
+        return {"nazwa": rekord.nazwa}
+
+    def _z_wiersza(self, wiersz: sqlite3.Row) -> Osoba:
+        return Osoba(wiersz["nazwa"], wiersz["id"])
+
+
 class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
     """Tabela transakcji cyklicznych."""
 
@@ -92,6 +105,7 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             "czestotliwosc": rekord.czestotliwosc.value,
             "ostatnia": rekord.ostatnia.isoformat() if rekord.ostatnia else None,
             "aktywna": int(rekord.aktywna),
+            "osoba_id": rekord.osoba_id,
         }
 
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Cykliczna:
@@ -106,6 +120,7 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             Czestotliwosc(wiersz["czestotliwosc"]),
             date.fromisoformat(ostatnia) if ostatnia else None,
             bool(wiersz["aktywna"]),
+            wiersz["osoba_id"],
             wiersz["id"],
         )
 

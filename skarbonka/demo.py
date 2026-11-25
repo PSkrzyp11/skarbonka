@@ -102,12 +102,13 @@ def _dodaj_cykliczne(
     serwisy: Serwisy, kategorie: dict[str, int], ror: int, start: date, dzis: date
 ) -> None:
     """Dodaje stałe pozycje. Ostatni termin internetu zostaje zaległy."""
+    kuba = serwisy.osoby.dodaj("Kuba").id
     wzory = (
-        ("Pensja", "przychód", "6200", "Wynagrodzenie", 1),
-        ("Czynsz", "wydatek", "1850", "Mieszkanie", 10),
-        ("Internet", "wydatek", "59.99", "Mieszkanie", 5),
+        ("Pensja", "przychód", "6200", "Wynagrodzenie", 1, kuba),
+        ("Czynsz", "wydatek", "1850", "Mieszkanie", 10, None),
+        ("Internet", "wydatek", "59.99", "Mieszkanie", 5, None),
     )
-    for nazwa, rodzaj, kwota, kategoria, dzien in wzory:
+    for nazwa, rodzaj, kwota, kategoria, dzien, osoba in wzory:
         cykliczna = serwisy.cykliczne.dodaj(
             Cykliczna(
                 nazwa,
@@ -117,6 +118,7 @@ def _dodaj_cykliczne(
                 kategorie[kategoria],
                 start.replace(day=dzien),
                 Czestotliwosc.MIESIAC,
+                osoba_id=osoba,
             ),
             dzis,
         )
@@ -130,21 +132,25 @@ def _dodaj_cykliczne(
 def _dodaj_przyszle(
     serwisy: Serwisy, kategorie: dict[str, int], ror: int, dzis: date
 ) -> None:
-    """Dodaje rzadsze opłaty, których pierwszy termin dopiero nadejdzie."""
+    """Dodaje drugą osobę i pozycje, których pierwszy termin dopiero nadejdzie."""
+    kuba, ola = serwisy.osoby.wszystkie()[0].id, serwisy.osoby.dodaj("Ola").id
     wzory = (
-        ("Ubezpieczenie auta", "1260", "Transport", Czestotliwosc.ROK),
-        ("Prąd", "390", "Mieszkanie", Czestotliwosc.KWARTAL),
+        ("Pensja", "przychód", "4300", "Wynagrodzenie", Czestotliwosc.MIESIAC, ola),
+        ("Siłownia", "wydatek", "129", "Zdrowie", Czestotliwosc.MIESIAC, ola),
+        ("Ubezpieczenie auta", "wydatek", "1260", "Transport", Czestotliwosc.ROK, kuba),
+        ("Prąd", "wydatek", "390", "Mieszkanie", Czestotliwosc.KWARTAL, None),
     )
-    for nazwa, kwota, kategoria, czestotliwosc in wzory:
+    for nazwa, rodzaj, kwota, kategoria, czestotliwosc, osoba in wzory:
         serwisy.cykliczne.dodaj(
             Cykliczna(
                 nazwa,
-                "wydatek",
+                rodzaj,
                 Decimal(kwota),
                 ror,
                 kategorie[kategoria],
                 przesun_miesiac(dzis, 1),
                 czestotliwosc,
+                osoba_id=osoba,
             ),
             dzis,
         )

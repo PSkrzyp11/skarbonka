@@ -1,4 +1,4 @@
-"""Połączenie z bazą SQLite i jej schemat.
+"""Połączenie z bazą SQLite.
 
 Kwoty są zapisywane w groszach jako liczby całkowite, a daty jako tekst
 w formacie RRRR-MM-DD.
@@ -12,103 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from skarbonka.config import PLIK_BAZY
+from skarbonka.storage.schemat import BEZ_UNIKALNYCH_NAZW, NOWE_KOLUMNY, SCHEMAT
 from skarbonka.wyjatki import BladBazy, UszkodzonaBaza
 
 W_PAMIECI = ":memory:"
-
-TABELE = (
-    "konta",
-    "kategorie",
-    "importy",
-    "cykliczne",
-    "transakcje",
-    "budzety",
-    "cele",
-    "wplaty_celu",
-    "reguly",
-    "kursy",
-)
-
-SCHEMAT = """
-CREATE TABLE IF NOT EXISTS konta (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nazwa TEXT NOT NULL UNIQUE,
-    typ TEXT NOT NULL,
-    grosze_poczatkowe INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS kategorie (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nazwa TEXT NOT NULL UNIQUE,
-    czy_wydatek INTEGER NOT NULL DEFAULT 1 CHECK (czy_wydatek IN (0, 1))
-);
-CREATE TABLE IF NOT EXISTS importy (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    plik TEXT NOT NULL,
-    utworzono TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS cykliczne (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nazwa TEXT NOT NULL UNIQUE,
-    rodzaj TEXT NOT NULL CHECK (rodzaj IN ('wydatek', 'przychód')),
-    grosze INTEGER NOT NULL CHECK (grosze > 0),
-    konto_id INTEGER NOT NULL REFERENCES konta(id),
-    kategoria_id INTEGER NOT NULL REFERENCES kategorie(id),
-    start TEXT NOT NULL,
-    czestotliwosc TEXT NOT NULL,
-    ostatnia TEXT,
-    aktywna INTEGER NOT NULL DEFAULT 1 CHECK (aktywna IN (0, 1))
-);
-CREATE TABLE IF NOT EXISTS transakcje (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    rodzaj TEXT NOT NULL CHECK (rodzaj IN ('wydatek', 'przychód', 'przelew')),
-    data TEXT NOT NULL,
-    grosze INTEGER NOT NULL CHECK (grosze > 0),
-    opis TEXT NOT NULL,
-    konto_id INTEGER NOT NULL REFERENCES konta(id),
-    konto_docelowe_id INTEGER REFERENCES konta(id),
-    kategoria_id INTEGER REFERENCES kategorie(id),
-    import_id INTEGER REFERENCES importy(id)
-);
-CREATE TABLE IF NOT EXISTS budzety (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    kategoria_id INTEGER NOT NULL REFERENCES kategorie(id),
-    miesiac TEXT NOT NULL,
-    grosze INTEGER NOT NULL CHECK (grosze > 0),
-    UNIQUE (kategoria_id, miesiac)
-);
-CREATE TABLE IF NOT EXISTS cele (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nazwa TEXT NOT NULL UNIQUE,
-    grosze INTEGER NOT NULL CHECK (grosze > 0),
-    termin TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS wplaty_celu (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cel_id INTEGER NOT NULL REFERENCES cele(id) ON DELETE CASCADE,
-    data TEXT NOT NULL,
-    grosze INTEGER NOT NULL CHECK (grosze > 0)
-);
-CREATE TABLE IF NOT EXISTS reguly (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    fraza TEXT NOT NULL,
-    kategoria_id INTEGER NOT NULL REFERENCES kategorie(id),
-    priorytet INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS kursy (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    waluta TEXT NOT NULL,
-    data TEXT NOT NULL,
-    wartosc TEXT NOT NULL,
-    UNIQUE (waluta, data)
-);
-CREATE INDEX IF NOT EXISTS transakcje_data ON transakcje(data);
-"""
-
-NOWE_KOLUMNY = (
-    ("transakcje", "cykliczna_id", "INTEGER REFERENCES cykliczne(id) ON DELETE SET NULL"),
-    ("transakcje", "waluta", "TEXT NOT NULL DEFAULT 'PLN'"),
-    ("transakcje", "grosze_oryg", "INTEGER"),
-)
 
 PLIKI_POMOCNICZE = ("", "-journal", "-wal", "-shm")
 
@@ -151,9 +58,19 @@ class Baza:
         wynik = self._polaczenie.execute("PRAGMA quick_check").fetchone()[0]
         if wynik != "ok":
             raise sqlite3.DatabaseError(wynik)
-        self._polaczenie.execute("PRAGMA foreign_keys = ON")
         self._polaczenie.executescript(SCHEMAT)
+        self._pozwol_powtarzac_nazwy()
         self._dodaj_nowe_kolumny()
+        self._polaczenie.execute("PRAGMA foreign_keys = ON")
+
+    def _pozwol_powtarzac_nazwy(self) -> None:
+        """Przebudowuje starą tabelę stałych pozycji, w której nazwy były niepowtarzalne.
+
+        Teraz dwie osoby mogą mieć pozycję o tej samej nazwie, np. czynsz.
+        """
+        zapytanie = "SELECT sql FROM sqlite_master WHERE name = 'cykliczne'"
+        if "UNIQUE" in self.zapytaj(zapytanie)[0]["sql"]:
+            self._polaczenie.executescript(BEZ_UNIKALNYCH_NAZW)
 
     def _dodaj_nowe_kolumny(self) -> None:
         """Uzupełnia bazę utworzoną przez starszą wersję aplikacji."""

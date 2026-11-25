@@ -35,6 +35,7 @@ class Cykliczna:
     czestotliwosc: Czestotliwosc
     ostatnia: date | None = None
     aktywna: bool = True
+    osoba_id: int | None = None
     id: int | None = None
 
     def __post_init__(self) -> None:

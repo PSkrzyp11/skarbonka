@@ -13,6 +13,7 @@ from skarbonka.storage.baza import Baza
 from skarbonka.ui.ekran_analizy import EkranAnaliz
 from skarbonka.ui.ekran_cykliczne import EkranCyklicznych
 from skarbonka.ui.ekran_dane import EkranDanych
+from skarbonka.ui.ekran_osoby import EkranOsob
 from skarbonka.ui.ekran_plan import EkranBudzetow, EkranCeli, EkranPlanu
 from skarbonka.ui.ekran_profile import EkranProfili
 from skarbonka.ui.ekran_reguly import EkranRegul
@@ -179,12 +180,30 @@ def test_cykliczne(serwisy, uruchom):
 
 def test_bilans_i_edycja_stalych(pelne, uruchom):
     ekran = EkranCyklicznych(pelne)
-    wyjscie = uruchom(ekran, "1", "7", "6", "1", "Wypłata", "7000", "", "")
+    wyjscie = uruchom(ekran, "1", "7", "6", "1", "Wypłata", "7000", "", "", "")
     assert "Zostaje na czysto" in wyjscie
-    assert "4 055,01 zł" in wyjscie
+    assert "8 226,01 zł" in wyjscie
+    assert "Płatności" in wyjscie and "Pensja (Kuba)" in wyjscie
     assert "Zostało do zapłaty: 59,99 zł" in wyjscie
     assert pelne.cykliczne.pobierz(1).nazwa == "Wypłata"
-    assert pelne.cykliczne.bilans().przychody == 7000
+    assert pelne.cykliczne.bilans().przychody == 11300
+    assert pelne.cykliczne.pobierz(1).osoba_id == 1
+
+
+def test_osoby(serwisy, uruchom):
+    osoby = EkranOsob(serwisy)
+    assert "Brak osób." in uruchom(osoby, "1", "2", "Ola", "2", "ola", "Jan", "3", "2", "Janek")
+    assert [o.nazwa for o in serwisy.osoby.wszystkie()] == ["Ola", "Janek"]
+    dzis = f"{date.today():%d.%m.%Y}"
+    czynsz = ("Czynsz", "1", "700", "1", "2", "2", dzis)
+    stale = EkranCyklicznych(serwisy)
+    wyjscie = uruchom(stale, "2", "2", *czynsz, "2", "3", *czynsz, "2", "2", "czynsz", "anuluj")
+    assert "jest już zajęta" in wyjscie
+    assert "Czynsz (Ola)" in uruchom(stale, "3", "1", "1", "8", "1", "0")
+    assert {c.osoba_id for c in serwisy.cykliczne.wszystkie()} == {1, 2}
+    wyjscie = uruchom(osoby, "1", "4", "1", "n", "4", "1", "t")
+    assert "-1 400,00 zł" in wyjscie
+    assert [c.osoba_id for c in serwisy.cykliczne.wszystkie()] == [2]
 
 
 def test_brak_platnosci(serwisy, uruchom):

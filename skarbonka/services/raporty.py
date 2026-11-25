@@ -108,7 +108,10 @@ class SerwisRaportow:
         aktywne = [c for c in self._cykliczne.wszystkie() if c.aktywna]
         if not aktywne:
             return []
-        linie = [self._linia(c.nazwa, c.miesiecznie) for c in aktywne]
+        linie = [self._linia(self._cykliczne.opis(c), c.miesiecznie) for c in aktywne]
+        grupy = self._cykliczne.grupy()
+        if len(grupy) > 1:
+            linie += [self._linia(f"Na czysto: {g.nazwa}", g.bilans.na_czysto) for g in grupy]
         return [*linie, self._linia("Zostaje na czysto", self._cykliczne.bilans().na_czysto)]
 
     @staticmethod

@@ -12,6 +12,7 @@ from skarbonka.services.kategorie import SerwisKategorii
 from skarbonka.services.kategoryzacja import Kategoryzator
 from skarbonka.services.konta import SerwisKont
 from skarbonka.services.kopie import SerwisKopii
+from skarbonka.services.osoby import SerwisOsob
 from skarbonka.services.planowanie import SerwisBudzetow, SerwisCeli
 from skarbonka.services.profile import SerwisProfili
 from skarbonka.services.prognoza import SerwisPrognozy
@@ -31,6 +32,7 @@ from skarbonka.storage.repozytoria_planu import (
     RepozytoriumCeli,
     RepozytoriumCyklicznych,
     RepozytoriumKursow,
+    RepozytoriumOsob,
     RepozytoriumRegul,
     RepozytoriumWplat,
 )
@@ -47,6 +49,7 @@ class Serwisy:
     kategoryzator: Kategoryzator
     budzety: SerwisBudzetow
     cele: SerwisCeli
+    osoby: SerwisOsob
     cykliczne: SerwisCyklicznych
     prognoza: SerwisPrognozy
     waluty: SerwisWalut
@@ -72,6 +75,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     repo_budzetow = RepozytoriumBudzetow(baza)
     repo_celi = RepozytoriumCeli(baza)
     repo_wplat = RepozytoriumWplat(baza)
+    repo_osob = RepozytoriumOsob(baza)
     repo_cyklicznych = RepozytoriumCyklicznych(baza)
     repo_regul = RepozytoriumRegul(baza)
     repo_kursow = RepozytoriumKursow(baza)
@@ -83,6 +87,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         repo_budzetow,
         repo_celi,
         repo_wplat,
+        repo_osob,
         repo_cyklicznych,
         repo_regul,
         repo_kursow,
@@ -92,7 +97,8 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
     transakcje = SerwisTransakcji(repo_transakcji)
     konta = SerwisKont(repo_kont, repo_transakcji)
     kategorie = SerwisKategorii(repo_kategorii, repo_transakcji)
-    cykliczne = SerwisCyklicznych(baza, repo_cyklicznych, transakcje)
+    osoby = SerwisOsob(repo_osob)
+    cykliczne = SerwisCyklicznych(baza, repo_cyklicznych, transakcje, osoby)
     kategoryzator = Kategoryzator(baza, repo_regul, kategorie, transakcje)
     budzety = SerwisBudzetow(repo_budzetow, transakcje, kategorie, ustawienia)
     cele = SerwisCeli(repo_celi, repo_wplat)
@@ -104,6 +110,7 @@ def utworz_serwisy(baza: Baza, katalog: Path | None = None) -> Serwisy:
         kategoryzator=kategoryzator,
         budzety=budzety,
         cele=cele,
+        osoby=osoby,
         cykliczne=cykliczne,
         prognoza=SerwisPrognozy(transakcje, konta, cykliczne),
         waluty=SerwisWalut(repo_kursow),

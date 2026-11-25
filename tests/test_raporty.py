@@ -42,6 +42,31 @@ def test_stale_pozycje_w_raporcie(serwisy):
     assert [linia.split("  ")[0].strip() for linia in linie] == ["Woda", "Zostaje na czysto"]
 
 
+def test_osoby_w_raporcie(serwisy):
+    ola = serwisy.osoby.dodaj("Ola").id
+    for osoba, kwota in ((None, "100"), (ola, "40")):
+        serwisy.cykliczne.dodaj(
+            Cykliczna(
+                "Czynsz",
+                "wydatek",
+                Decimal(kwota),
+                1,
+                2,
+                date.today(),
+                Czestotliwosc.MIESIAC,
+                osoba_id=osoba,
+            )
+        )
+    tekst = "\n".join(" ".join(linia.split()) for linia in serwisy.raporty.linie(LISTOPAD))
+    for fragment in (
+        "Czynsz (Ola) -40,00 zł",
+        "Na czysto: Ola -40,00 zł",
+        "Na czysto: Wspólne -100,00 zł",
+        "Zostaje na czysto -140,00 zł",
+    ):
+        assert fragment in tekst
+
+
 def test_pusty_miesiac(serwisy):
     linie = list(serwisy.raporty.linie(date(2020, 1, 1)))
     assert linie[0].endswith("styczeń 2020")

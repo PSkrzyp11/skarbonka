@@ -5,9 +5,10 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from skarbonka.storage.baza import TABELE, Baza
+from skarbonka.storage.baza import Baza
 from skarbonka.storage.pliki_json import wczytaj_json, zapisz_json
 from skarbonka.storage.repozytoria import Repozytorium
+from skarbonka.storage.schemat import TABELE
 from skarbonka.wyjatki import BladBazy, UszkodzonyPlik
 
 logger = logging.getLogger(__name__)
