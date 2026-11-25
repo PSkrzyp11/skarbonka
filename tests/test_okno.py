@@ -323,7 +323,7 @@ def test_stale_platnosci(okno, odpowiedz):
     assert "wyższe" in widok._opis.cget("text")
     czynsz = serwis.wszystkie()[0]
     widok.tabela.zaznacz(czynsz.id)
-    wypelnij(widok.edytuj(), kwota="250", czestotliwosc="co rok")
+    wypelnij(widok.edytuj(), kwota="250", odstep="1 rok")
     assert widok.na_czysto.cget("text") == "979,17 zł"
     assert okno.pasek._pozycje["Stałe płatności"]._licznik.cget("text") == "2"
     widok.zalatw(next(p for p in serwis.harmonogram() if p.cykliczna.id == czynsz.id))
@@ -394,6 +394,31 @@ def test_inna_kwota_co_miesiac(okno):
     widok.tabela.zaznacz(1)
     wypelnij(widok.edytuj(), zmienna="Zawsze taka sama")
     assert serwis.pobierz(1).zmienna is False
+
+
+def test_powtarzanie_co_2_miesiace(okno):
+    okno.pokaz_widok("Stałe płatności")
+    widok = okno.widok()
+    formularz = widok.dodaj_oplate()
+    odstep = formularz._kontrolki["odstep"]
+    assert odstep.get() == "1 miesiąc"
+    formularz.ustaw("odstep", "5 miesięcy")
+    odstep.wpis.delete(0, "end")
+    odstep.wpis.insert(0, "2")
+    odstep._odmien()
+    assert odstep.get() == "2 miesiące"
+    assert odstep.menu.cget("values") == ["dni", "tygodnie", "miesiące", "kwartały", "lata"]
+    for zly in ("0 miesiące", "x miesiące", " miesiące", "100 miesięcy"):
+        wypelnij(formularz, nazwa="Prąd", kwota="300", odstep=zly)
+        assert "od 1 do 99" in formularz.blad_pola("odstep")
+    wypelnij(formularz, odstep="2 miesiące")
+    assert widok.tabela.pozycja(1).opis.startswith("co 2 miesiące")
+    assert widok.tabela.pozycja(1).podpis == kwota_ze_znakiem("-150,00 zł na miesiąc")
+    widok.tabela.zaznacz(1)
+    edycja = widok.edytuj()
+    assert edycja.wartosc("odstep") == "2 miesiące"
+    wypelnij(edycja, odstep="3 tygodnie")
+    assert okno.serwisy.cykliczne.pobierz(1).powtarzanie == "co 3 tygodnie"
 
 
 def test_srednia_zmiennej_pozycji(pelne):

@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
 from skarbonka.gui.formularz import Formularz, Pole
-from skarbonka.models.cykliczna import KLASY_CYKLICZNE, Cykliczna
+from skarbonka.models.cykliczna import KLASY_CYKLICZNE, MAKS_ODSTEP, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
 from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY, Platnosc
 from skarbonka.services.osoby import WSPOLNE
 from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac
-from skarbonka.utils.walidacja import parsuj_date, parsuj_kwote, sprawdz_tekst
+from skarbonka.utils.walidacja import parsuj_date, parsuj_kwote, parsuj_liczbe, sprawdz_tekst
 
 if TYPE_CHECKING:
     from skarbonka.gui.okno import Okno
@@ -31,6 +31,12 @@ def _parser_terminu(stara: Cykliczna | None) -> Any:
         return parsuj_date(tekst, najwczesniej=date.today() - NAJSTARSZY_START)
 
     return parser
+
+
+def _odstep(tekst: str) -> tuple[Czestotliwosc, int]:
+    """Zamienia tekst, np. 2 miesiące, na jednostkę i liczbę."""
+    liczba, _, jednostka = tekst.rpartition(" ")
+    return Czestotliwosc.z_odmiany(jednostka), parsuj_liczbe(liczba, MAKS_ODSTEP, minimum=1)
 
 
 def _nazwa(tekst: str) -> str:
@@ -84,10 +90,11 @@ def _pola(
         ),
         *_pola_osoby(okno, osoba_id),
         Pole(
-            "czestotliwosc",
-            "Powtarzanie",
-            wartosc=str(stara.czestotliwosc if stara else Czestotliwosc.MIESIAC),
-            wybor={str(c): c for c in Czestotliwosc},
+            "odstep",
+            "Powtarzanie co",
+            _odstep,
+            stara.czestotliwosc.okres(stara.co) if stara else Czestotliwosc.MIESIAC.okres(1),
+            rodzaj="odstep",
         ),
         Pole(
             "termin",
@@ -118,6 +125,7 @@ def nowa_stala(
     """Otwiera panel nowego stałego przychodu albo opłaty."""
 
     def zapisz(dane: dict[str, Any]) -> None:
+        czestotliwosc, co = dane["odstep"]
         okno.serwisy.cykliczne.dodaj(
             Cykliczna(
                 dane["nazwa"],
@@ -126,9 +134,10 @@ def nowa_stala(
                 dane["konto"].id,
                 dane["kategoria"].id,
                 dane["termin"],
-                dane["czestotliwosc"],
+                czestotliwosc,
                 osoba_id=dane.get("osoba"),
                 zmienna=dane["zmienna"],
+                co=co,
             )
         )
         okno.powiadom(f"Dodano: {dane['nazwa']}")
@@ -150,7 +159,7 @@ def edycja_stalej(okno: "Okno", stara: Cykliczna) -> Formularz:
             osoba_id=dane.get("osoba"),
             zmienna=dane["zmienna"],
         )
-        okno.serwisy.cykliczne.zmien(zmieniona.przeplanuj(dane["termin"], dane["czestotliwosc"]))
+        okno.serwisy.cykliczne.zmien(zmieniona.przeplanuj(dane["termin"], *dane["odstep"]))
         okno.powiadom("Zapisano zmiany.")
 
     pola = _pola(okno, rodzaj, stara.osoba_id, stara)

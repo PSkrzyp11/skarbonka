@@ -11,7 +11,14 @@ import customtkinter as ctk
 
 from skarbonka.gui import ikony, styl
 from skarbonka.gui.animacje import animuj
-from skarbonka.gui.pola import PoleDaty, PoleKafelkow, PoleKwoty, PoleListy, PoleTekstowe
+from skarbonka.gui.pola import (
+    PoleDaty,
+    PoleKafelkow,
+    PoleKwoty,
+    PoleListy,
+    PoleOdstepu,
+    PoleTekstowe,
+)
 from skarbonka.gui.skladniki import (
     Przewijana,
     etykieta,
@@ -33,8 +40,8 @@ SZEROKOSC_TEKSTU = 330
 class Pole:
     """Jedno pole formularza.
 
-    Rodzaj to: tekst, kwota, data, lista albo kafelki. Dwa ostatnie wymagają
-    słownika z wyborem.
+    Rodzaj to: tekst, kwota, data, odstep, lista albo kafelki. Dwa ostatnie
+    wymagają słownika z wyborem.
     """
 
     klucz: str
@@ -145,6 +152,8 @@ class Formularz(ctk.CTkFrame):
             return PoleKwoty(rodzic, zmieniono)
         if pole.rodzaj == "data":
             return PoleDaty(rodzic, zmieniono)
+        if pole.rodzaj == "odstep":
+            return PoleOdstepu(rodzic, zmieniono)
         return PoleTekstowe(rodzic, zmieniono)
 
     def _ustaw_kursor(self) -> None:

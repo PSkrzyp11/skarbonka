@@ -196,7 +196,7 @@ class WidokStale(Widok):
             stala.id,
             ikona,
             stala.nazwa,
-            f"{stala.czestotliwosc}  ·  {stan}{self._czyja(stala)}",
+            f"{stala.powtarzanie}  ·  {stan}{self._czyja(stala)}",
             kwota_ze_znakiem(formatuj_kwote(stala.wplyw)),
             self._podpis(stala),
             kolor,
@@ -208,7 +208,7 @@ class WidokStale(Widok):
         if stala.zmienna:
             srednia = self.serwis.srednia(stala)
             return "kwota zmienna" if srednia is None else f"średnio {formatuj_kwote(srednia)}"
-        if stala.czestotliwosc is Czestotliwosc.MIESIAC:
+        if stala.czestotliwosc is Czestotliwosc.MIESIAC and stala.co == 1:
             return ""
         return f"{kwota_ze_znakiem(formatuj_kwote(stala.miesiecznie))} na miesiąc"
 

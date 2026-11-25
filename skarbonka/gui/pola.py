@@ -8,9 +8,12 @@ import customtkinter as ctk
 
 from skarbonka.gui import ikony, styl
 from skarbonka.gui.skladniki import lista_rozwijana, pole_tekstowe, przycisk, ramka
+from skarbonka.models.enums import Czestotliwosc
 from skarbonka.utils.formatowanie import formatuj_date
 
 SZEROKOSC_POLA = 340
+SZEROKOSC_LICZBY = 76
+ODSTEP = 10
 KOLUMNY_KAFELKOW = 3
 
 
@@ -77,6 +80,46 @@ class PoleDaty(PoleTekstowe):
             przycisk(self, napis, lambda d=dzien: self.set(formatuj_date(d)), "cichy", 70).pack(
                 side="left", padx=(8, 0)
             )
+
+
+class PoleOdstepu(PoleTekstowe):
+    """Liczba i jednostka, np. 2 miesiące."""
+
+    def __init__(self, rodzic: Any, po_zmianie: Callable[[], None]) -> None:
+        def zmieniono() -> None:
+            self._odmien()
+            po_zmianie()
+
+        super().__init__(rodzic, zmieniono)
+        self._jednostka = Czestotliwosc.MIESIAC
+        self.wpis.configure(width=SZEROKOSC_LICZBY, justify="center")
+        self.menu = lista_rozwijana(
+            self, [], self._wybrano, SZEROKOSC_POLA - SZEROKOSC_LICZBY - ODSTEP
+        )
+        self.menu.pack(side="left", padx=(ODSTEP, 0))
+        self._odmien()
+
+    def get(self) -> str:
+        """Zwraca liczbę i jednostkę."""
+        return f"{self.wpis.get()} {self.menu.get()}"
+
+    def set(self, tekst: str) -> None:
+        """Ustawia liczbę i jednostkę."""
+        liczba, _, jednostka = tekst.rpartition(" ")
+        self.wpis.delete(0, "end")
+        self.wpis.insert(0, liczba)
+        self._wybrano(jednostka)
+
+    def _wybrano(self, nazwa: str) -> None:
+        self._jednostka = Czestotliwosc.z_odmiany(nazwa)
+        self._odmien()
+
+    def _odmien(self) -> None:
+        """Dopasowuje nazwy jednostek do wpisanej liczby."""
+        liczba = self.wpis.get().strip()
+        ile = int(liczba) if liczba.isdecimal() else 1
+        self.menu.configure(values=[jednostka.odmiana(ile) for jednostka in Czestotliwosc])
+        self.menu.set(self._jednostka.odmiana(ile))
 
 
 class PoleListy(ctk.CTkFrame):
