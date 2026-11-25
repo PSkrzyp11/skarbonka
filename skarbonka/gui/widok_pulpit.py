@@ -25,7 +25,7 @@ from skarbonka.gui.widok import Widok
 from skarbonka.models.transakcja import Wydatek
 from skarbonka.services import analizy, wykresy
 from skarbonka.services.transakcje import posortuj
-from skarbonka.services.uwagi import zbierz_uwagi
+from skarbonka.services.uwagi import PLAN, zbierz_uwagi
 from skarbonka.utils.formatowanie import (
     formatuj_date,
     formatuj_dzien,
@@ -144,6 +144,11 @@ class WidokPulpit(Widok):
             pasek_postepu(self._tresc_miesiaca, procent, kolor).pack(fill="x", pady=(0, 6))
         stopa = analizy.stopa_oszczednosci(sumy["Przychody"], sumy["Bilans"])
         self._dodaj_linie("Oszczędności", "-" if stopa is None else formatuj_procent(stopa))
+        bilans = self.serwisy.cykliczne.bilans()
+        if bilans.przychody or bilans.wydatki:
+            self._dodaj_linie(
+                "Na czysto co miesiąc", kwota_ze_znakiem(formatuj_kwote(bilans.na_czysto))
+            )
         try:
             prognoza = self.serwisy.prognoza.policz()
         except ZaMaloDanych:
@@ -165,17 +170,21 @@ class WidokPulpit(Widok):
         etykieta(rzad, wartosc, 17, "liczby").pack(side="right")
 
     def _pokaz_sprawy(self) -> None:
-        """Wypisuje ostrzeżenia. Kliknięcie prowadzi do planu."""
+        """Wypisuje ostrzeżenia. Kliknięcie prowadzi do właściwego działu."""
         wyczysc(self._sprawy)
         uwagi = zbierz_uwagi(self.serwisy)
-        for tekst in uwagi:
-            self._dodaj_sprawe(ikony.OSTRZEZENIE, tekst, styl.UWAGA_TLO, styl.UWAGA)
+        for uwaga in uwagi:
+            self._dodaj_sprawe(
+                ikony.OSTRZEZENIE, uwaga.tekst, styl.UWAGA_TLO, styl.UWAGA, uwaga.dzial
+            )
         if not uwagi:
             self._dodaj_sprawe(
                 ikony.GOTOWE, "Wszystko w porządku.", styl.AKCENT_TLO, styl.AKCENT_TEKST
             )
 
-    def _dodaj_sprawe(self, ikona: str, tekst: str, tlo: styl.Kolor, kolor: styl.Kolor) -> None:
+    def _dodaj_sprawe(
+        self, ikona: str, tekst: str, tlo: styl.Kolor, kolor: styl.Kolor, dzial: str = PLAN
+    ) -> None:
         """Dodaje jedną sprawę."""
         rzad = ramka(self._sprawy)
         rzad.pack(fill="x", pady=5)
@@ -183,9 +192,9 @@ class WidokPulpit(Widok):
         napis = etykieta(rzad, tekst)
         napis.configure(wraplength=SZEROKOSC_BOCZNA - 120)
         napis.pack(side="left", fill="x")
-        self._podepnij(rzad, napis)
+        self._podepnij(dzial, rzad, napis)
 
-    def _podepnij(self, *elementy: Any) -> None:
+    def _podepnij(self, dzial: str, *elementy: Any) -> None:
         for element in elementy:
             element.configure(cursor="hand2")
-            element.bind("<Button-1>", lambda _: self.okno.pokaz_widok("Plan"))
+            element.bind("<Button-1>", lambda _: self.okno.pokaz_widok(dzial))

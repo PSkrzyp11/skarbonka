@@ -19,6 +19,7 @@ from skarbonka.gui.widok_analizy import WidokAnalizy
 from skarbonka.gui.widok_dane import WidokDane
 from skarbonka.gui.widok_plan import WidokPlan
 from skarbonka.gui.widok_pulpit import WidokPulpit
+from skarbonka.gui.widok_stale import WidokStale
 from skarbonka.gui.widok_transakcje import WidokTransakcje
 from skarbonka.gui.widok_ustawienia import WidokUstawienia
 from skarbonka.models.transakcja import Wydatek
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 WIDOKI: tuple[type[Widok], ...] = (
     WidokPulpit,
     WidokTransakcje,
+    WidokStale,
     WidokPlan,
     WidokAnalizy,
     WidokDane,
@@ -93,7 +95,10 @@ class Okno(ctk.CTk):
     def odswiez(self) -> None:
         """Wczytuje aktualne dane do bieżącego widoku."""
         self.widok().odswiez()
-        self.pasek.ustaw_licznik(WidokPlan.TYTUL, len(zbierz_uwagi(self.serwisy)))
+        uwagi = zbierz_uwagi(self.serwisy)
+        for dzial in (WidokStale.TYTUL, WidokPlan.TYTUL):
+            liczba = sum(uwaga.ile for uwaga in uwagi if uwaga.dzial == dzial)
+            self.pasek.ustaw_licznik(dzial, liczba)
 
     def otworz_panel(self, panel: Any) -> None:
         """Zapamiętuje wysunięty panel i zamyka poprzedni."""

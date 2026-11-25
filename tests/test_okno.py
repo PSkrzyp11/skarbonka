@@ -20,6 +20,8 @@ from skarbonka.gui.okno_importu import PanelImportu
 from skarbonka.gui.pozycje import kwota_ze_znakiem
 from skarbonka.gui.skladniki import Przewijana, etykieta
 from skarbonka.gui.widok_transakcje import okresy
+from skarbonka.models.cykliczna import Cykliczna
+from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.importy import ProfilCSV
 from skarbonka.models.transakcja import Przychod, Wydatek
 from skarbonka.services.profile import PROFIL_SKARBONKI
@@ -309,32 +311,66 @@ def test_cele(okno, odpowiedz):
     assert okno.serwisy.cele.wszystkie() == []
 
 
-def test_cykliczne(okno, odpowiedz):
-    odpowiedz(tak=True)
-    okno.pokaz_widok("Plan")
-    zakladka = okno.widok().zakladki["Cykliczne"]
+def test_stale_platnosci(okno, odpowiedz):
+    okno.pokaz_widok("Stałe płatności")
+    widok, serwis = okno.widok(), okno.serwisy.cykliczne
+    assert widok._pusty.winfo_manager()
     with pytest.raises(NieZnalezionoRekordu):
-        zakladka.przelacz()
-    formularz = zakladka.dodaj()
-    wypelnij(formularz, nazwa="Czynsz", kwota="100", kategoria="Wynagrodzenie")
-    assert "nie pasuje do rodzaju" in formularz.blad_ogolny()
-    wypelnij(formularz, kategoria="Mieszkanie")
-    cykliczna, termin = okno.serwisy.cykliczne.zalegle()[0]
-    zakladka.zaksieguj(cykliczna, termin)
-    assert ostatnia(okno).cykliczna_id == cykliczna.id
-    zakladka.tabela.zaznacz(cykliczna.id)
-    zakladka.przelacz()
-    assert okno.serwisy.cykliczne.wszystkie()[0].aktywna is False
-    zakladka.tabela.zaznacz(cykliczna.id)
-    zakladka.usun()
-    assert okno.serwisy.cykliczne.wszystkie() == []
+        widok.przelacz()
+    wypelnij(widok.dodaj_oplate(), nazwa="Czynsz", kwota="1500", kategoria="Mieszkanie")
+    assert "Dodaj stały przychód" in widok._opis.cget("text")
+    wypelnij(widok.dodaj_przychod(), nazwa="Pensja", kwota="1000")
+    assert "wyższe" in widok._opis.cget("text")
+    czynsz = serwis.wszystkie()[0]
+    widok.tabela.zaznacz(czynsz.id)
+    wypelnij(widok.edytuj(), kwota="250", czestotliwosc="co rok")
+    assert widok.na_czysto.cget("text") == "979,17 zł"
+    assert okno.pasek._pozycje["Stałe płatności"]._licznik.cget("text") == "2"
+    widok.zaksieguj(czynsz, date.today())
+    assert ostatnia(okno).cykliczna_id == czynsz.id
+    widok.tabela.zaznacz(czynsz.id)
+    widok.przelacz()
+    assert serwis.pobierz(czynsz.id).aktywna is False
+    for tak, zostaje in ((False, 2), (True, 1)):
+        odpowiedz(tak=tak)
+        widok.usun()
+        assert len(serwis.wszystkie()) == zostaje
+
+
+def test_powtorzona_nazwa_stalej(pelne):
+    pelne.pokaz_widok("Stałe płatności")
+    widok = pelne.widok()
+    widok.tabela.zaznacz(1)
+    formularz = widok.edytuj()
+    wypelnij(formularz, nazwa="czynsz")
+    assert "jest już zajęta" in formularz.blad_pola("nazwa")
+    wypelnij(formularz, nazwa="Pensja", termin="01.01.2020")
+    assert formularz.blad_pola("termin")
 
 
 def test_pominiecie_terminu(pelne):
-    pelne.pokaz_widok("Plan")
+    pelne.pokaz_widok("Stałe płatności")
     cykliczna, termin = pelne.serwisy.cykliczne.zalegle()[0]
-    pelne.widok().zakladki["Cykliczne"].pomin(cykliczna, termin)
+    pelne.widok().pomin(cykliczna, termin)
     assert pelne.serwisy.cykliczne.zalegle() == []
+
+
+def test_dluga_lista_platnosci(okno):
+    for numer in range(25):
+        okno.serwisy.cykliczne.dodaj(
+            Cykliczna(
+                f"Opłata {numer}",
+                "wydatek",
+                Decimal("1"),
+                1,
+                1,
+                date.today(),
+                Czestotliwosc.MIESIAC,
+            )
+        )
+    okno.pokaz_widok("Stałe płatności")
+    ostatni = okno.widok()._platnosci.winfo_children()[-1]
+    assert ostatni.cget("text") == "Kolejne terminy: 5"
 
 
 def test_zapis_wykresu(pelne, odpowiedz, tmp_path):

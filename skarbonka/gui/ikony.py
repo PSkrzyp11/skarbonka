@@ -51,6 +51,11 @@ W_DOL = ""
 OSOBA = ""
 
 SLOWA_KLUCZOWE = {
+    "elektr": DOKUMENT,
+    "prąd": DOKUMENT,
+    "ubezp": DOKUMENT,
+    "kredyt": BANK,
+    "rata": BANK,
     "jedzeni": JEDZENIE,
     "spożyw": WOZEK,
     "zakup": WOZEK,
@@ -82,10 +87,13 @@ SLOWA_KLUCZOWE = {
     "napraw": NARZEDZIA,
     "osob": OSOBA,
     "internet": GLOBUS,
+    "telefon": GLOBUS,
+    "netflix": FILM,
+    "spotify": FILM,
 }
 
 
 def dla_nazwy(nazwa: str, domyslna: str = METKA) -> str:
-    """Dobiera ikonę do nazwy kategorii, celu albo transakcji cyklicznej."""
+    """Dobiera ikonę do nazwy kategorii, celu albo stałej pozycji."""
     mala = nazwa.casefold()
     return next((ikona for slowo, ikona in SLOWA_KLUCZOWE.items() if slowo in mala), domyslna)
