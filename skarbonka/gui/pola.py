@@ -36,6 +36,7 @@ class PoleTekstowe(ctk.CTkFrame):
     def ustaw_kursor(self) -> None:
         """Ustawia kursor w polu."""
         self.wpis.focus_set()
+        self.wpis.select_range(0, "end")
 
     def oznacz_blad(self, czy_blad: bool) -> None:
         """Podświetla ramkę pola."""

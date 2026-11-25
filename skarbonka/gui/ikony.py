@@ -79,6 +79,7 @@ SLOWA_KLUCZOWE = {
     "wynagrodz": TECZKA,
     "pensja": TECZKA,
     "prac": TECZKA,
+    "zleceni": TECZKA,
     "podróż": SAMOLOT,
     "wakac": SAMOLOT,
     "nauk": NAUKA,

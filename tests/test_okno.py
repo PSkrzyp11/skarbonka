@@ -326,7 +326,7 @@ def test_stale_platnosci(okno, odpowiedz):
     wypelnij(widok.edytuj(), kwota="250", czestotliwosc="co rok")
     assert widok.na_czysto.cget("text") == "979,17 zł"
     assert okno.pasek._pozycje["Stałe płatności"]._licznik.cget("text") == "2"
-    widok.zaksieguj(czynsz, date.today())
+    widok.zalatw(next(p for p in serwis.harmonogram() if p.cykliczna.id == czynsz.id))
     assert ostatnia(okno).cykliczna_id == czynsz.id
     widok.tabela.zaznacz(czynsz.id)
     widok.przelacz()
@@ -370,6 +370,38 @@ def test_osoby(okno, odpowiedz):
         widok.osoby.usun()
         assert len(serwisy.cykliczne.wszystkie()) == zostaje
     assert widok.osoby.nazwa_wybranej() == "Wszyscy"
+
+
+def test_inna_kwota_co_miesiac(okno):
+    okno.pokaz_widok("Stałe płatności")
+    widok, serwis = okno.widok(), okno.serwisy.cykliczne
+    wypelnij(
+        widok.dodaj_przychod(), nazwa="Pensja", kwota="4000", zmienna="Za każdym razem inna"
+    )
+    assert widok.tabela.pozycja(1).podpis == "kwota zmienna"
+    pensja = serwis.harmonogram()[0]
+    widok.zalatw(pensja)
+    formularz = okno.panel
+    assert formularz.wartosc("kwota") == "4000,00"
+    wypelnij(formularz, kwota="abc")
+    assert formularz.blad_pola("kwota")
+    wypelnij(formularz, kwota="4321")
+    assert ostatnia(okno).kwota == Decimal("4321")
+    assert widok.na_czysto.cget("text") == "4 321,00 zł"
+    wypelnij(widok.wpisz_kwote(serwis.harmonogram()[0]), kwota="4500,50")
+    assert ostatnia(okno).kwota == Decimal("4500.50")
+    assert widok.na_czysto.cget("text") == "4 500,50 zł"
+    widok.tabela.zaznacz(1)
+    wypelnij(widok.edytuj(), zmienna="Zawsze taka sama")
+    assert serwis.pobierz(1).zmienna is False
+
+
+def test_srednia_zmiennej_pozycji(pelne):
+    pelne.pokaz_widok("Stałe płatności")
+    widok = pelne.widok()
+    widok.tabela.zaznacz(1)
+    wypelnij(widok.edytuj(), zmienna="Za każdym razem inna")
+    assert widok.tabela.pozycja(1).podpis == "średnio 6 200,00 zł"
 
 
 def test_powtorzona_nazwa_stalej(pelne):

@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
@@ -9,9 +10,9 @@ from skarbonka.gui.formularz import Formularz, Pole
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
-from skarbonka.services.cykliczne import NAJSTARSZY_START
+from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY, Platnosc
 from skarbonka.services.osoby import WSPOLNE
-from skarbonka.utils.formatowanie import formatuj_date
+from skarbonka.utils.formatowanie import formatuj_date, formatuj_miesiac
 from skarbonka.utils.walidacja import parsuj_date, parsuj_kwote, sprawdz_tekst
 
 if TYPE_CHECKING:
@@ -37,6 +38,16 @@ def _nazwa(tekst: str) -> str:
     return sprawdz_tekst(tekst, "Nazwa", MAKS_DLUGOSC_NAZWY)
 
 
+def _rodzaj_kwoty(zmienna: bool) -> str:
+    """Zwraca nazwę rodzaju kwoty."""
+    return next(nazwa for nazwa, czy in RODZAJE_KWOTY.items() if czy == zmienna)
+
+
+def _tekst_kwoty(kwota: Decimal) -> str:
+    """Zapisuje kwotę tak, jak wpisuje ją użytkownik."""
+    return f"{kwota:.2f}".replace(".", ",")
+
+
 def _pola_osoby(okno: "Okno", osoba_id: int | None) -> list[Pole]:
     """Zwraca pole wyboru osoby albo nic, gdy nie ma osób."""
     wybor = okno.serwisy.osoby.wybor()
@@ -56,8 +67,14 @@ def _pola(
             "kwota",
             "Kwota",
             parsuj_kwote,
-            f"{stara.kwota:.2f}".replace(".", ",") if stara else "",
+            _tekst_kwoty(stara.kwota) if stara else "",
             rodzaj="kwota",
+        ),
+        Pole(
+            "zmienna",
+            "Rodzaj kwoty",
+            wartosc=_rodzaj_kwoty(stara is not None and stara.zmienna),
+            wybor=RODZAJE_KWOTY,
         ),
         Pole(
             "nazwa",
@@ -111,6 +128,7 @@ def nowa_stala(
                 dane["termin"],
                 dane["czestotliwosc"],
                 osoba_id=dane.get("osoba"),
+                zmienna=dane["zmienna"],
             )
         )
         okno.powiadom(f"Dodano: {dane['nazwa']}")
@@ -130,9 +148,31 @@ def edycja_stalej(okno: "Okno", stara: Cykliczna) -> Formularz:
             konto_id=dane["konto"].id,
             kategoria_id=dane["kategoria"].id,
             osoba_id=dane.get("osoba"),
+            zmienna=dane["zmienna"],
         )
         okno.serwisy.cykliczne.zmien(zmieniona.przeplanuj(dane["termin"], dane["czestotliwosc"]))
         okno.powiadom("Zapisano zmiany.")
 
     pola = _pola(okno, rodzaj, stara.osoba_id, stara)
     return Formularz(okno, TYTULY[rodzaj], pola, zapisz)
+
+
+def kwota_terminu(okno: "Okno", platnosc: Platnosc) -> Formularz:
+    """Otwiera panel z kwotą jednego terminu. Zaksięgowaną kwotę poprawia."""
+    stala, serwis = platnosc.cykliczna, okno.serwisy.cykliczne
+
+    def zapisz(dane: dict[str, Any]) -> None:
+        if platnosc.transakcja is None:
+            serwis.zaksieguj(stala, platnosc.termin, kwota=dane["kwota"])
+        else:
+            serwis.popraw(stala, platnosc.transakcja, dane["kwota"])
+        okno.powiadom(f"Zapisano: {serwis.opis(stala)}")
+
+    pole = Pole(
+        "kwota",
+        f"Kwota za {formatuj_miesiac(platnosc.termin)}",
+        parsuj_kwote,
+        _tekst_kwoty(abs(platnosc.wplyw)),
+        rodzaj="kwota",
+    )
+    return Formularz(okno, serwis.opis(stala), [pole], zapisz)

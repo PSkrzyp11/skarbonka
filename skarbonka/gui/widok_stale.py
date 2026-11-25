@@ -6,7 +6,7 @@ import customtkinter as ctk
 
 from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz
-from skarbonka.gui.formularze_stalych import edycja_stalej, nowa_stala
+from skarbonka.gui.formularze_stalych import edycja_stalej, kwota_terminu, nowa_stala
 from skarbonka.gui.karta_osob import NUMER_WSZYSTKICH, KartaOsob
 from skarbonka.gui.lista import Lista, Naglowek, Pozycja
 from skarbonka.gui.pozycje import kwota_ze_znakiem
@@ -192,18 +192,25 @@ class WidokStale(Widok):
             kolor = styl.DOBRY if stala.wplyw > 0 else styl.TEKST
         else:
             stan, kolor = "wyłączona", styl.TEKST_DRUGI
-        co_miesiac = stala.czestotliwosc is Czestotliwosc.MIESIAC
-        miesiecznie = kwota_ze_znakiem(formatuj_kwote(stala.miesiecznie))
         return Pozycja(
             stala.id,
             ikona,
             stala.nazwa,
             f"{stala.czestotliwosc}  ·  {stan}{self._czyja(stala)}",
             kwota_ze_znakiem(formatuj_kwote(stala.wplyw)),
-            "" if co_miesiac else f"{miesiecznie} na miesiąc",
+            self._podpis(stala),
             kolor,
             wyrozniona=stala.aktywna and stala.wplyw > 0,
         )
+
+    def _podpis(self, stala: Cykliczna) -> str:
+        """Zwraca podpis pod kwotą: średnią zmiennej albo przeliczenie na miesiąc."""
+        if stala.zmienna:
+            srednia = self.serwis.srednia(stala)
+            return "kwota zmienna" if srednia is None else f"średnio {formatuj_kwote(srednia)}"
+        if stala.czestotliwosc is Czestotliwosc.MIESIAC:
+            return ""
+        return f"{kwota_ze_znakiem(formatuj_kwote(stala.miesiecznie))} na miesiąc"
 
     def _czyja(self, stala: Cykliczna) -> str:
         """Zwraca dopisek z imieniem, gdy widać pozycje wszystkich osób."""
@@ -243,7 +250,7 @@ class WidokStale(Widok):
         kafelek_ikony(rzad, ikona, tlo, kolor, bok=36).pack(side="left", padx=(4, 12))
         etykieta(
             rzad,
-            kwota_ze_znakiem(formatuj_kwote(stala.wplyw)),
+            kwota_ze_znakiem(formatuj_kwote(platnosc.wplyw)),
             15,
             "liczby",
             styl.TEKST_DRUGI if gotowa else styl.TEKST,
@@ -256,24 +263,27 @@ class WidokStale(Widok):
         etykieta(napisy, f"{formatuj_date(termin)}  ·  {stan}", 12, kolor=styl.TEKST_DRUGI).pack(
             anchor="w"
         )
-        if platnosc.kolejna:
-            self._dodaj_przyciski(stala, termin, stan is StanPlatnosci.CZEKA)
+        if platnosc.kolejna or platnosc.do_poprawy:
+            self._dodaj_przyciski(platnosc)
 
-    def _dodaj_przyciski(self, stala: Cykliczna, termin: date, czeka: bool) -> None:
+    def _dodaj_przyciski(self, platnosc: Platnosc) -> None:
         """Dodaje przyciski pod terminem."""
+        stala, termin = platnosc.cykliczna, platnosc.termin
+        czeka = platnosc.stan is StanPlatnosci.CZEKA
+        if platnosc.do_poprawy:
+            napis = "Popraw kwotę"
+        elif stala.zmienna:
+            napis = "Wpisz kwotę"
+        else:
+            napis = "Zaksięguj" if czeka else "Zaksięguj wcześniej"
         rzad = ramka(self._platnosci)
         rzad.pack(fill="x", padx=(52, 0), pady=(4, 6))
-        przycisk(
-            rzad,
-            "Zaksięguj" if czeka else "Zaksięguj wcześniej",
-            lambda: self.zaksieguj(stala, termin),
-            "glowny" if czeka else "zwykly",
-            100,
-            30,
-        ).pack(side="left")
-        przycisk(rzad, "Pomiń", lambda: self.pomin(stala, termin), "cichy", 70, 30).pack(
-            side="left", padx=6
-        )
+        wyglad = "glowny" if czeka else "zwykly"
+        przycisk(rzad, napis, lambda: self.zalatw(platnosc), wyglad, 100, 30).pack(side="left")
+        if platnosc.kolejna:
+            przycisk(rzad, "Pomiń", lambda: self.pomin(stala, termin), "cichy", 70, 30).pack(
+                side="left", padx=6
+            )
 
     def _wybrano(self) -> None:
         """Pokazuje przyciski dla zaznaczonej pozycji."""
@@ -322,6 +332,17 @@ class WidokStale(Widok):
             self.serwis.usun(stala)
             self.okno.powiadom("Usunięto.")
             self.okno.odswiez()
+
+    def zalatw(self, platnosc: Platnosc) -> None:
+        """Księguje stałą kwotę, a o zmienną najpierw pyta."""
+        if platnosc.cykliczna.zmienna:
+            self.wpisz_kwote(platnosc)
+        else:
+            self.zaksieguj(platnosc.cykliczna, platnosc.termin)
+
+    def wpisz_kwote(self, platnosc: Platnosc) -> Formularz:
+        """Otwiera panel z kwotą jednego terminu."""
+        return kwota_terminu(self.okno, platnosc)
 
     def zaksieguj(self, stala: Cykliczna, termin: date) -> None:
         """Dodaje transakcję z podanego terminu."""
