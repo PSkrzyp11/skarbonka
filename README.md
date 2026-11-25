@@ -105,7 +105,7 @@ Pliki do wypróbowania importu są w katalogu `przyklady`: poprawny `wyciag_demo
 | Dane | import z podglądem i duplikatami, eksport, raport, kopie zapasowe |
 | Ustawienia | konta, kategorie, reguły, profile CSV, próg ostrzeżeń |
 
-Transakcje dodaje się w panelu wysuwanym z prawej: kategorię wybiera się kafelkiem z ikoną, a reguły podpowiadają ją w trakcie pisania opisu. Skróty: `Ctrl+N` nowa transakcja, `Ctrl+1` do `Ctrl+7` widoki, `Enter` zapis, `Esc` zamknięcie panelu. Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
+Transakcje dodaje się w panelu wysuwanym z prawej: kategorię wybiera się kafelkiem z ikoną, kafelek „Nowa” dodaje własną bez zamykania panelu, a reguły podpowiadają ją w trakcie pisania opisu. Skróty: `Ctrl+N` nowa transakcja, `Ctrl+1` do `Ctrl+7` widoki, `Enter` zapis, `Esc` zamknięcie panelu. Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
 
 ## Architektura
 
