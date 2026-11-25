@@ -13,12 +13,12 @@ from skarbonka.gui import ikony, styl
 from skarbonka.gui.animacje import animuj
 from skarbonka.gui.pola import (
     PoleDaty,
-    PoleKafelkow,
     PoleKwoty,
     PoleListy,
     PoleOdstepu,
     PoleTekstowe,
 )
+from skarbonka.gui.pole_kafelkow import PoleKafelkow
 from skarbonka.gui.skladniki import (
     Przewijana,
     etykieta,
@@ -41,7 +41,8 @@ class Pole:
     """Jedno pole formularza.
 
     Rodzaj to: tekst, kwota, data, odstep, lista albo kafelki. Dwa ostatnie
-    wymagają słownika z wyborem.
+    wymagają słownika z wyborem. Funkcja nowa pozwala dodać kafelek w trakcie
+    wypełniania formularza.
     """
 
     klucz: str
@@ -51,6 +52,7 @@ class Pole:
     wybor: dict[str, Any] | None = None
     po_zmianie: Callable[["Formularz"], None] | None = None
     rodzaj: str = "tekst"
+    nowa: Callable[[str], Any] | None = None
 
 
 @dataclass
@@ -146,8 +148,10 @@ class Formularz(ctk.CTkFrame):
             self._zmieniono(pole)
 
         if pole.wybor is not None:
-            klasa = PoleKafelkow if pole.rodzaj == "kafelki" else PoleListy
-            return klasa(rodzic, list(pole.wybor), zmieniono)
+            if pole.rodzaj != "kafelki":
+                return PoleListy(rodzic, list(pole.wybor), zmieniono)
+            dodaj = None if pole.nowa is None else lambda tekst: self._dodaj_wybor(pole, tekst)
+            return PoleKafelkow(rodzic, list(pole.wybor), zmieniono, dodaj)
         if pole.rodzaj == "kwota":
             return PoleKwoty(rodzic, zmieniono)
         if pole.rodzaj == "data":
@@ -155,6 +159,13 @@ class Formularz(ctk.CTkFrame):
         if pole.rodzaj == "odstep":
             return PoleOdstepu(rodzic, zmieniono)
         return PoleTekstowe(rodzic, zmieniono)
+
+    @staticmethod
+    def _dodaj_wybor(pole: Pole, tekst: str) -> str:
+        """Tworzy nową pozycję, dopisuje ją do wyboru i zwraca jej nazwę."""
+        nowa = pole.nowa(tekst)
+        pole.wybor[str(nowa)] = nowa
+        return str(nowa)
 
     def _ustaw_kursor(self) -> None:
         """Ustawia kursor w pierwszym polu tekstowym."""

@@ -337,6 +337,38 @@ def test_stale_platnosci(okno, odpowiedz):
         assert len(serwis.wszystkie()) == zostaje
 
 
+def test_nowa_kategoria_w_panelu(okno):
+    formularz = formularze.nowa_transakcja(okno, Wydatek)
+    kafelki = formularz._kontrolki["kategoria"]
+    formularz.ustaw("kwota", "80")
+    formularz.ustaw("opis", "Karma")
+    kafelki.otworz_nowa()
+    for zla, powod in (("", "pust"), ("jedzenie", "jest już zajęta"), ("x" * 26, "25")):
+        kafelki.nazwa.delete(0, "end")
+        kafelki.nazwa.insert(0, zla)
+        assert kafelki._enter() == "break"
+        assert powod in kafelki.blad.cget("text")
+    kafelki.nazwa.delete(0, "end")
+    kafelki.nazwa.insert(0, " Zwierzęta ")
+    kafelki.dodaj_nowa()
+    assert formularz.wartosc("kategoria") == "Zwierzęta"
+    assert not kafelki._dodawanie.winfo_manager()
+    formularz.zatwierdz()
+    kategoria = okno.serwisy.kategorie.pobierz(ostatnia(okno).kategoria_id)
+    assert (kategoria.nazwa, kategoria.czy_wydatek) == ("Zwierzęta", True)
+
+    przychod = formularze.nowa_transakcja(okno, Przychod)
+    kafelki = przychod._kontrolki["kategoria"]
+    assert "Zwierzęta" not in kafelki._kafelki
+    kafelki.otworz_nowa()
+    kafelki.otworz_nowa()
+    assert not kafelki._dodawanie.winfo_manager()
+    kafelki.otworz_nowa()
+    kafelki.nazwa.insert(0, "Premia")
+    kafelki.dodaj_nowa()
+    assert okno.serwisy.kategorie.wszystkie()[-1].czy_wydatek is False
+
+
 def test_osoby(okno, odpowiedz):
     okno.pokaz_widok("Stałe płatności")
     widok, serwisy = okno.widok(), okno.serwisy

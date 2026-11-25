@@ -105,6 +105,19 @@ class Przewijana(ctk.CTkScrollableFrame):
         self._czy_pasek = True
         self._parent_canvas.configure(yscrollcommand=self._ustaw_pasek)
 
+    def pokaz(self, element: Any) -> None:
+        """Przewija tak, żeby było widać cały element."""
+        self.update_idletasks()
+        plotno = self._parent_canvas
+        brakuje = (
+            element.winfo_rooty()
+            + element.winfo_height()
+            - plotno.winfo_rooty()
+            - plotno.winfo_height()
+        )
+        if brakuje > 0:
+            plotno.yview_moveto((plotno.canvasy(0) + brakuje) / self.winfo_height())
+
     def _ustaw_pasek(self, poczatek: str, koniec: str) -> None:
         """Chowa pasek, gdy nie ma czego przewijać."""
         potrzebny = float(poczatek) > 0 or float(koniec) < 1

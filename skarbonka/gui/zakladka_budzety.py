@@ -6,6 +6,7 @@ import customtkinter as ctk
 
 from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz, Pole
+from skarbonka.gui.pole_kategorii import pole_kategorii
 from skarbonka.gui.skladniki import (
     Karta,
     Przewijana,
@@ -107,7 +108,6 @@ class ZakladkaBudzety(ctk.CTkFrame):
     def ustaw(self) -> Formularz:
         """Otwiera panel limitu."""
         miesiac = self.miesiac.miesiac
-        kategorie = {k.nazwa: k for k in self.okno.serwisy.kategorie.pasujace(Wydatek)}
 
         def zapisz(dane: dict[str, Any]) -> None:
             self.serwis.ustaw(dane["kategoria"].id, miesiac, dane["limit"])
@@ -115,7 +115,7 @@ class ZakladkaBudzety(ctk.CTkFrame):
 
         pola = [
             Pole("limit", "Limit na miesiąc", parsuj_kwote, rodzaj="kwota"),
-            Pole("kategoria", "Kategoria", wybor=kategorie, rodzaj="kafelki"),
+            pole_kategorii(self.okno, Wydatek),
         ]
         return Formularz(self.okno, "Limit miesięczny", pola, zapisz)
 

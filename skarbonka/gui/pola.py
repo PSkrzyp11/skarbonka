@@ -6,15 +6,14 @@ from typing import Any
 
 import customtkinter as ctk
 
-from skarbonka.gui import ikony, styl
-from skarbonka.gui.skladniki import lista_rozwijana, pole_tekstowe, przycisk, ramka
+from skarbonka.gui import styl
+from skarbonka.gui.skladniki import lista_rozwijana, pole_tekstowe, przycisk
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.utils.formatowanie import formatuj_date
 
 SZEROKOSC_POLA = 340
 SZEROKOSC_LICZBY = 76
 ODSTEP = 10
-KOLUMNY_KAFELKOW = 3
 
 
 class PoleTekstowe(ctk.CTkFrame):
@@ -138,65 +137,3 @@ class PoleListy(ctk.CTkFrame):
     def set(self, tekst: str) -> None:
         """Wybiera wartość."""
         self.menu.set(tekst)
-
-
-class PoleKafelkow(ctk.CTkFrame):
-    """Siatka kafelków z ikonami, np. kategorie."""
-
-    def __init__(self, rodzic: Any, wartosci: list[str], po_zmianie: Callable[[], None]) -> None:
-        super().__init__(rodzic, fg_color=styl.PRZEZROCZYSTY)
-        self._po_zmianie = po_zmianie
-        self._kafelki: dict[str, ctk.CTkFrame] = {}
-        self._wybrany = wartosci[0]
-        szerokosc = (SZEROKOSC_POLA - 16) // KOLUMNY_KAFELKOW
-        for numer, nazwa in enumerate(wartosci):
-            kafelek = self._utworz(nazwa, szerokosc)
-            kafelek.grid(
-                row=numer // KOLUMNY_KAFELKOW,
-                column=numer % KOLUMNY_KAFELKOW,
-                padx=(0 if numer % KOLUMNY_KAFELKOW == 0 else 8, 0),
-                pady=(0, 8),
-            )
-            self._kafelki[nazwa] = kafelek
-        self.set(self._wybrany)
-
-    def _utworz(self, nazwa: str, szerokosc: int) -> ctk.CTkFrame:
-        """Tworzy jeden kafelek."""
-        kafelek = ctk.CTkFrame(
-            self, width=szerokosc, height=72, corner_radius=11, border_width=2, cursor="hand2"
-        )
-        kafelek.pack_propagate(False)
-        srodek = ramka(kafelek)
-        srodek.pack(expand=True)
-        ikona = ctk.CTkLabel(
-            srodek, text=ikony.dla_nazwy(nazwa), font=styl.czcionka(19, "ikony"), height=24
-        )
-        napis = ctk.CTkLabel(
-            srodek, text=nazwa, font=styl.czcionka(11), height=16, wraplength=szerokosc - 12
-        )
-        ikona.pack()
-        napis.pack(pady=(3, 0))
-        kafelek.napisy = (ikona, napis)
-        for element in (kafelek, srodek, ikona, napis):
-            element.bind("<Button-1>", lambda _: self._kliknij(nazwa))
-        return kafelek
-
-    def _kliknij(self, nazwa: str) -> None:
-        self.set(nazwa)
-        self._po_zmianie()
-
-    def get(self) -> str:
-        """Zwraca wybraną nazwę."""
-        return self._wybrany
-
-    def set(self, tekst: str) -> None:
-        """Wybiera kafelek."""
-        self._wybrany = tekst
-        for nazwa, kafelek in self._kafelki.items():
-            wybrany = nazwa == tekst
-            tlo = styl.AKCENT_TLO if wybrany else styl.WGLEBIENIE
-            kafelek.configure(fg_color=tlo, border_color=styl.AKCENT_TEKST if wybrany else tlo)
-            for napis in kafelek.napisy:
-                napis.configure(
-                    text_color=styl.AKCENT_TEKST if wybrany else styl.TEKST_DRUGI, fg_color=tlo
-                )

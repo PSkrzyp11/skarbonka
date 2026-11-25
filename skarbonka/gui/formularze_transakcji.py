@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from skarbonka.gui.formularz import Formularz, Pole, Przelacznik
+from skarbonka.gui.pole_kategorii import pole_kategorii
 from skarbonka.models.kurs import Kurs
 from skarbonka.models.transakcja import Przelew, Przychod, Transakcja, Wydatek
 from skarbonka.services.waluty import WALUTY
@@ -62,7 +63,6 @@ def _pola_opisu(
 ) -> list[Pole]:
     """Zwraca pola opisu i kategorii. Reguły podpowiadają kategorię w trakcie pisania."""
     serwisy = okno.serwisy
-    kategorie = {k.nazwa: k for k in serwisy.kategorie.pasujace(rodzaj)}
 
     def podpowiedz(formularz: Formularz) -> None:
         kategoria = serwisy.kategoryzator.dopasuj(formularz.wartosc("opis"), rodzaj)
@@ -78,7 +78,7 @@ def _pola_opisu(
             stara.opis if stara else "",
             po_zmianie=None if stara else podpowiedz,
         ),
-        Pole("kategoria", "Kategoria", wartosc=obecna, wybor=kategorie, rodzaj="kafelki"),
+        pole_kategorii(okno, rodzaj, obecna),
     ]
 
 

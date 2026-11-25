@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
 from skarbonka.gui.formularz import Formularz, Pole
+from skarbonka.gui.pole_kategorii import pole_kategorii
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, MAKS_ODSTEP, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
@@ -104,12 +105,8 @@ def _pola(
             formatuj_date(stara.nastepny if stara else date.today()),
             rodzaj="data",
         ),
-        Pole(
-            "kategoria",
-            "Kategoria",
-            wartosc=serwisy.kategorie.nazwy()[stara.kategoria_id] if stara else "",
-            wybor={k.nazwa: k for k in serwisy.kategorie.pasujace(rodzaj)},
-            rodzaj="kafelki",
+        pole_kategorii(
+            okno, rodzaj, serwisy.kategorie.nazwy()[stara.kategoria_id] if stara else ""
         ),
         Pole(
             "konto",
