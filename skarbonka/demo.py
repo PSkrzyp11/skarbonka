@@ -138,7 +138,7 @@ def _dodaj_przyszle(
         ("Zlecenia", "przychód", "4300", "Wynagrodzenie", Czestotliwosc.MIESIAC, ola),
         ("Siłownia", "wydatek", "129", "Zdrowie", Czestotliwosc.MIESIAC, ola),
         ("Ubezpieczenie auta", "wydatek", "1260", "Transport", Czestotliwosc.ROK, kuba),
-        ("Prąd", "wydatek", "390", "Mieszkanie", Czestotliwosc.KWARTAL, None),
+        ("Prąd", "wydatek", "260", "Mieszkanie", Czestotliwosc.MIESIAC, None),
     )
     for nazwa, rodzaj, kwota, kategoria, czestotliwosc, osoba in wzory:
         serwisy.cykliczne.dodaj(
@@ -152,6 +152,7 @@ def _dodaj_przyszle(
                 czestotliwosc,
                 osoba_id=osoba,
                 zmienna=nazwa in ("Zlecenia", "Prąd"),
+                co=2 if nazwa == "Prąd" else 1,
             ),
             dzis,
         )

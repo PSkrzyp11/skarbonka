@@ -4,7 +4,7 @@ from dataclasses import replace
 from datetime import date
 
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
-from skarbonka.models.cykliczna import KLASY_CYKLICZNE, Cykliczna
+from skarbonka.models.cykliczna import KLASY_CYKLICZNE, MAKS_ODSTEP, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY, do_zaplaty
 from skarbonka.ui import widoki
@@ -13,6 +13,7 @@ from skarbonka.ui.menu import Ekran, OpcjaMenu
 from skarbonka.ui.wejscie import (
     potwierdz,
     wczytaj_kwote,
+    wczytaj_liczbe,
     wczytaj_nazwe,
     wczytaj_tekst,
     wczytaj_termin,
@@ -76,10 +77,10 @@ class EkranCyklicznych(Ekran):
             kwota=wczytaj_kwote(domyslna=stara.kwota),
             zmienna=self._wybierz_rodzaj_kwoty(stara.zmienna),
         )
-        czestotliwosc = wybierz("Częstotliwość", list(Czestotliwosc), stara.czestotliwosc)
+        czestotliwosc, co = self._wczytaj_odstep(stara.czestotliwosc, stara.co)
         najstarszy = date.today() - NAJSTARSZY_START
         termin = wczytaj_termin("Następny termin", najstarszy, stara.nastepny)
-        nowa = nowa.przeplanuj(termin, czestotliwosc)
+        nowa = nowa.przeplanuj(termin, czestotliwosc, co)
         nowa.osoba_id = self._wybierz_osobe(stara.osoba_id)
         self.serwisy.cykliczne.zmien(nowa)
         widoki.sukces(f"Zmieniono: {nowa}")
@@ -96,7 +97,7 @@ class EkranCyklicznych(Ekran):
         konto = wybierz("Konto", self.serwisy.konta.wszystkie())
         pasujace = self.serwisy.kategorie.pasujace(KLASY_CYKLICZNE[rodzaj])
         kategoria = wybierz("Kategoria", pasujace)
-        czestotliwosc = wybierz("Częstotliwość", list(Czestotliwosc))
+        czestotliwosc, co = self._wczytaj_odstep()
         start = wczytaj_termin("Pierwszy termin", date.today() - NAJSTARSZY_START)
         self.serwisy.cykliczne.dodaj(
             Cykliczna(
@@ -109,9 +110,19 @@ class EkranCyklicznych(Ekran):
                 czestotliwosc,
                 osoba_id=osoba_id,
                 zmienna=zmienna,
+                co=co,
             )
         )
         widoki.sukces(f"Dodano: {nazwa}")
+
+    @staticmethod
+    def _wczytaj_odstep(
+        czestotliwosc: Czestotliwosc = Czestotliwosc.MIESIAC, co: int = 1
+    ) -> tuple[Czestotliwosc, int]:
+        """Pyta o jednostkę i liczbę, np. miesiąc i 2 to co 2 miesiące."""
+        wybrana = wybierz("Częstotliwość", list(Czestotliwosc), czestotliwosc)
+        pytanie = f"Co ile {wybrana.odmiana(MAKS_ODSTEP)}"
+        return wybrana, wczytaj_liczbe(pytanie, MAKS_ODSTEP, co, minimum=1)
 
     def _wybierz_rodzaj_kwoty(self, zmienna: bool = False) -> bool:
         """Pyta, czy kwota jest stała. Zwraca True dla zmiennej."""

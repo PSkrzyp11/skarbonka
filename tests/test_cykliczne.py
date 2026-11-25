@@ -52,6 +52,33 @@ def test_kolejne_terminy(start, czestotliwosc, oczekiwane):
     assert list(islice(terminy, 3)) == oczekiwane
 
 
+@pytest.mark.parametrize(
+    ("czestotliwosc", "co", "drugi", "opis", "miesiecznie"),
+    [
+        (Czestotliwosc.DZIEN, 30, date(2027, 1, 30), "co 30 dni", "-101.39"),
+        (Czestotliwosc.TYDZIEN, 2, date(2027, 1, 14), "co 2 tygodnie", "-216.67"),
+        (Czestotliwosc.MIESIAC, 2, date(2027, 2, 28), "co 2 miesiące", "-50"),
+        (Czestotliwosc.MIESIAC, 12, date(2027, 12, 31), "co 12 miesięcy", "-8.33"),
+        (Czestotliwosc.KWARTAL, 2, date(2027, 6, 30), "co 2 kwartały", "-16.67"),
+        (Czestotliwosc.ROK, 5, date(2031, 12, 31), "co 5 lat", "-1.67"),
+        (Czestotliwosc.ROK, 1, date(2027, 12, 31), "co rok", "-8.33"),
+    ],
+)
+def test_dowolny_odstep(czestotliwosc, co, drugi, opis, miesiecznie):
+    stala = czynsz(date(2026, 12, 31), czestotliwosc, co=co)
+    assert stala.termin(1) == drugi
+    assert stala.powtarzanie == opis
+    assert stala.miesiecznie == Decimal(miesiecznie)
+
+
+def test_odstep_w_bazie(serwisy):
+    stala = serwisy.cykliczne.dodaj(czynsz(co=2), DZIS)
+    terminy = [termin for _, termin in serwisy.cykliczne.zalegle(DZIS)]
+    assert terminy == [date(2026, 9, 10), date(2026, 11, 10)]
+    serwisy.cykliczne.zmien(stala.przeplanuj(date(2026, 12, 1), Czestotliwosc.MIESIAC, 4))
+    assert serwisy.cykliczne.pobierz(stala.id).powtarzanie == "co 4 miesiące"
+
+
 def test_zakres_terminow():
     wynik = list(czynsz().terminy(date(2026, 10, 10), date(2026, 11, 10)))
     assert wynik == [date(2026, 10, 10), date(2026, 11, 10)]
@@ -64,7 +91,11 @@ def test_niezaksiegowane_po_ostatnim():
 
 @pytest.mark.parametrize(
     ("pola", "wyjatek"),
-    [({"kwota": Decimal("0")}, NieprawidlowaKwota), ({"rodzaj": "przelew"}, BladWalidacji)],
+    [
+        ({"kwota": Decimal("0")}, NieprawidlowaKwota),
+        ({"rodzaj": "przelew"}, BladWalidacji),
+        ({"co": 0}, BladWalidacji),
+    ],
 )
 def test_bledne_dane(pola, wyjatek):
     with pytest.raises(wyjatek):

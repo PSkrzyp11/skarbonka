@@ -243,7 +243,7 @@ def pokaz_cykliczne(grupy: list[GrupaStalych]) -> None:
             tabela.add_row(
                 Text(c.nazwa),
                 _kwota(c.wplyw),
-                str(c.czestotliwosc) + (" *" if c.zmienna else ""),
+                c.powtarzanie + (" *" if c.zmienna else ""),
                 _kwota(c.miesiecznie),
                 formatuj_date(c.nastepny) if c.aktywna else "wyłączona",
             )

@@ -107,6 +107,7 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             "aktywna": int(rekord.aktywna),
             "osoba_id": rekord.osoba_id,
             "zmienna": int(rekord.zmienna),
+            "co": rekord.co,
         }
 
     def _z_wiersza(self, wiersz: sqlite3.Row) -> Cykliczna:
@@ -123,6 +124,7 @@ class RepozytoriumCyklicznych(Repozytorium[Cykliczna]):
             bool(wiersz["aktywna"]),
             wiersz["osoba_id"],
             bool(wiersz["zmienna"]),
+            wiersz["co"],
             wiersz["id"],
         )
 

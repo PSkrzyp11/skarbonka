@@ -96,6 +96,7 @@ CREATE INDEX IF NOT EXISTS transakcje_data ON transakcje(data);
 NOWE_KOLUMNY = (
     ("cykliczne", "osoba_id", "INTEGER REFERENCES osoby(id) ON DELETE CASCADE"),
     ("cykliczne", "zmienna", "INTEGER NOT NULL DEFAULT 0 CHECK (zmienna IN (0, 1))"),
+    ("cykliczne", "co", "INTEGER NOT NULL DEFAULT 1 CHECK (co > 0)"),
     ("transakcje", "cykliczna_id", "INTEGER REFERENCES cykliczne(id) ON DELETE SET NULL"),
     ("transakcje", "waluta", "TEXT NOT NULL DEFAULT 'PLN'"),
     ("transakcje", "grosze_oryg", "INTEGER"),

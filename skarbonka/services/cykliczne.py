@@ -186,33 +186,42 @@ class SerwisCyklicznych:
             for cykliczna, termin in self.zalegle(dzis)
             if termin < poczatek
         ]
+        wszystkie = self._transakcje.wszystkie()
         for cykliczna in self.wszystkie():
             if not cykliczna.aktywna:
                 continue
+            wlasne = self._transakcje_pozycji(cykliczna, wszystkie)
             for termin in cykliczna.terminy(poczatek, koniec):
                 stan = self._stan(cykliczna, termin, dzis)
                 transakcja = None
                 if stan is StanPlatnosci.ZALATWIONA:
-                    transakcja = self._zaksiegowana(cykliczna, termin)
+                    transakcja = self._zaksiegowana(cykliczna, termin, wlasne)
                 platnosci.append(Platnosc(cykliczna, termin, stan, transakcja))
         return sorted(platnosci, key=lambda p: p.termin)
 
-    def _transakcje_pozycji(self, cykliczna: Cykliczna) -> list[Transakcja]:
+    @staticmethod
+    def _transakcje_pozycji(
+        cykliczna: Cykliczna, transakcje: list[Transakcja]
+    ) -> list[Transakcja]:
         """Zwraca transakcje zaksięgowane z tej pozycji, od najstarszej."""
-        wlasne = [t for t in self._transakcje.wszystkie() if t.cykliczna_id == cykliczna.id]
+        wlasne = [t for t in transakcje if t.cykliczna_id == cykliczna.id]
         return sorted(wlasne, key=lambda t: (t.data, t.id))
 
-    def _zaksiegowana(self, cykliczna: Cykliczna, termin: date) -> Transakcja | None:
+    @staticmethod
+    def _zaksiegowana(
+        cykliczna: Cykliczna, termin: date, wlasne: list[Transakcja]
+    ) -> Transakcja | None:
         """Zwraca transakcję z podanego terminu. Pominięty termin jej nie ma."""
         poprzedni = cykliczna.poprzedni(termin)
-        for transakcja in reversed(self._transakcje_pozycji(cykliczna)):
+        for transakcja in reversed(wlasne):
             if poprzedni < transakcja.data <= termin:
                 return transakcja
         return None
 
     def srednia(self, cykliczna: Cykliczna) -> Decimal | None:
         """Zwraca średnią z ostatnich kwot. None, gdy są mniej niż dwie."""
-        kwoty = [t.kwota for t in self._transakcje_pozycji(cykliczna)][-ILE_DO_SREDNIEJ:]
+        wlasne = self._transakcje_pozycji(cykliczna, self._transakcje.wszystkie())
+        kwoty = [t.kwota for t in wlasne[-ILE_DO_SREDNIEJ:]]
         if len(kwoty) < 2:
             return None
         return (sum(kwoty, ZERO) / len(kwoty)).quantize(GROSZ)

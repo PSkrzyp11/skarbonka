@@ -13,7 +13,9 @@ from skarbonka.wyjatki import BladWalidacji, NieprawidlowaData, NieprawidlowaKwo
 GROSZ = Decimal("0.01")
 MIESIECY_W_ROKU = 12
 MIESIECY_W_KWARTALE = 3
+MAKS_ODSTEP = 99
 RAZY_W_ROKU = {
+    Czestotliwosc.DZIEN: 365,
     Czestotliwosc.TYDZIEN: 52,
     Czestotliwosc.MIESIAC: MIESIECY_W_ROKU,
     Czestotliwosc.KWARTAL: 4,
@@ -26,7 +28,8 @@ KLASY_CYKLICZNE = {klasa.RODZAJ: klasa for klasa in (Wydatek, Przychod)}
 class Cykliczna:
     """Wzór, według którego powstają kolejne transakcje.
 
-    Pozycja zmienna, np. pensja godzinowa, pamięta ostatnio wpisaną kwotę.
+    Powtarza się co podaną liczbę jednostek, np. co 2 miesiące. Pozycja zmienna,
+    np. pensja godzinowa, pamięta ostatnio wpisaną kwotę.
     """
 
     nazwa: str
@@ -40,6 +43,7 @@ class Cykliczna:
     aktywna: bool = True
     osoba_id: int | None = None
     zmienna: bool = False
+    co: int = 1
     id: int | None = None
 
     def __post_init__(self) -> None:
@@ -47,6 +51,8 @@ class Cykliczna:
             raise NieprawidlowaKwota("Kwota transakcji musi być dodatnia.")
         if self.rodzaj not in KLASY_CYKLICZNE:
             raise BladWalidacji(f"Nieznany rodzaj transakcji: {self.rodzaj}.")
+        if not 1 <= self.co <= MAKS_ODSTEP:
+            raise BladWalidacji(f"Odstęp musi być od 1 do {MAKS_ODSTEP}.")
 
     def termin(self, numer: int) -> date:
         """Zwraca termin o podanym numerze, licząc od zera.
@@ -54,15 +60,18 @@ class Cykliczna:
         Każdy termin liczy się od daty startu, dzięki czemu płatność z 31. dnia
         po krótkim lutym wraca w marcu na 31.
         """
+        ile = numer * self.co
         match self.czestotliwosc:
+            case Czestotliwosc.DZIEN:
+                return self.start + timedelta(days=ile)
             case Czestotliwosc.TYDZIEN:
-                return self.start + timedelta(weeks=numer)
+                return self.start + timedelta(weeks=ile)
             case Czestotliwosc.MIESIAC:
-                return przesun_miesiac(self.start, numer)
+                return przesun_miesiac(self.start, ile)
             case Czestotliwosc.KWARTAL:
-                return przesun_miesiac(self.start, numer * MIESIECY_W_KWARTALE)
+                return przesun_miesiac(self.start, ile * MIESIECY_W_KWARTALE)
             case Czestotliwosc.ROK:
-                return przesun_miesiac(self.start, numer * MIESIECY_W_ROKU)
+                return przesun_miesiac(self.start, ile * MIESIECY_W_ROKU)
 
     def terminy(self, od: date, do: date) -> Iterator[date]:
         """Generator: oddaje kolejne terminy z podanego zakresu dat."""
@@ -90,16 +99,25 @@ class Cykliczna:
         """Najbliższy termin, który nie jest jeszcze zaksięgowany."""
         return next(self.niezaksiegowane(date.max))
 
-    def przeplanuj(self, nastepny: date, czestotliwosc: Czestotliwosc) -> "Cykliczna":
-        """Zwraca kopię z nowym najbliższym terminem i częstotliwością.
+    @property
+    def powtarzanie(self) -> str:
+        """Odstęp słowami: co miesiąc, co 2 miesiące."""
+        if self.co == 1:
+            return str(self.czestotliwosc)
+        return f"co {self.czestotliwosc.okres(self.co)}"
+
+    def przeplanuj(
+        self, nastepny: date, czestotliwosc: Czestotliwosc, co: int = 1
+    ) -> "Cykliczna":
+        """Zwraca kopię z nowym najbliższym terminem i odstępem.
 
         Bez zmian zostaje stara data startu, żeby nie zgubić np. 31. dnia miesiąca.
         """
-        if (nastepny, czestotliwosc) == (self.nastepny, self.czestotliwosc):
+        if (nastepny, czestotliwosc, co) == (self.nastepny, self.czestotliwosc, self.co):
             return replace(self)
         if self.ostatnia is not None and nastepny <= self.ostatnia:
             raise NieprawidlowaData("Następny termin musi być po ostatnim zaksięgowanym.")
-        return replace(self, start=nastepny, czestotliwosc=czestotliwosc)
+        return replace(self, start=nastepny, czestotliwosc=czestotliwosc, co=co)
 
     def utworz_transakcje(self, termin: date) -> Transakcja:
         """Tworzy transakcję na podany dzień."""
@@ -122,7 +140,7 @@ class Cykliczna:
     def miesiecznie(self) -> Decimal:
         """Wpływ w przeliczeniu na jeden miesiąc, np. roczna opłata podzielona przez 12."""
         rocznie = self.wplyw * RAZY_W_ROKU[self.czestotliwosc]
-        return (rocznie / MIESIECY_W_ROKU).quantize(GROSZ, rounding=ROUND_HALF_UP)
+        return (rocznie / MIESIECY_W_ROKU / self.co).quantize(GROSZ, rounding=ROUND_HALF_UP)
 
     def __str__(self) -> str:
         return self.nazwa
