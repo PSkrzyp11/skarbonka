@@ -6,6 +6,8 @@ Menedżer budżetu domowego z dwoma interfejsami: w oknie i w konsoli. Zapisuje 
 
 ![Transakcje](docs/okno_transakcje.png)
 
+![Stałe płatności](docs/okno_stale.png)
+
 ![Panel dodawania w ciemnym motywie](docs/okno_panel.png)
 
 ![Analizy w ciemnym motywie](docs/okno_analizy.png)
@@ -15,7 +17,8 @@ Menedżer budżetu domowego z dwoma interfejsami: w oknie i w konsoli. Zapisuje 
 ## Najważniejsze funkcje
 
 - **Transakcje:** wydatki, przychody i przelewy między kontami, edycja, wyszukiwanie, wydatki w obcej walucie
-- **Plan:** budżety z ostrzeżeniami, cele oszczędnościowe, transakcje cykliczne
+- **Stałe płatności:** regularne przychody i opłaty (co tydzień, miesiąc, kwartał lub rok), kwota, która zostaje na czysto, terminy i księgowanie jednym kliknięciem
+- **Plan:** budżety z ostrzeżeniami, cele oszczędnościowe
 - **Analizy:** podsumowania, udziały kategorii, trend, prognoza salda w trzech wariantach, wykresy PNG
 - **Dane:** import wyciągów CSV z wykrywaniem duplikatów, eksport CSV, raport TXT, kopie zapasowe JSON
 - **Bezpieczeństwo:** każda dana wejściowa jest sprawdzana, błędy trafiają do logu, a uszkodzona baza jest odkładana i zastępowana kopią
@@ -81,7 +84,7 @@ Testy:
 | Menu | Opcje |
 |---|---|
 | 1. Transakcje | dodaj wydatek, dodaj przychód, przelew, wydatek w obcej walucie, lista, szukaj i filtruj, edytuj, usuń |
-| 2. Plan | budżety (stan, limit, kopiowanie, usuwanie), cele (postęp, dodawanie, wpłaty, usuwanie), transakcje cykliczne (lista, dodawanie, księgowanie zaległych, wyłączanie, usuwanie) |
+| 2. Plan | budżety (stan, limit, kopiowanie, usuwanie), cele (postęp, dodawanie, wpłaty, usuwanie), stałe przychody i opłaty (lista i kwota na czysto, płatności w tym miesiącu, dodawanie, edycja, księgowanie zaległych, wyłączanie, usuwanie) |
 | 3. Analizy | saldo i sumy, podsumowanie miesiąca, kategorie, trend, największe wydatki, prognoza, wykresy PNG |
 | 4. Dane | import CSV, cofnięcie importu, eksport CSV, raport TXT, utworzenie i przywrócenie kopii |
 | 5. Ustawienia | konta, kategorie, reguły kategorii, profile CSV banków, próg ostrzeżeń |
@@ -96,12 +99,13 @@ Pliki do wypróbowania importu są w katalogu `przyklady`: poprawny `wyciag_demo
 |---|---|
 | Pulpit | saldo z wykresem, bieżący miesiąc, prognoza, ostatnie transakcje, sprawy do załatwienia |
 | Transakcje | lista pogrupowana dniami, szukanie w trakcie pisania, filtry okresu, konta i kategorii, edycja (także dwuklikiem) i usuwanie |
-| Plan | budżety i cele z paskami postępu, transakcje cykliczne z zaległościami |
+| Stałe płatności | kwota na czysto co miesiąc, lista stałych przychodów i opłat, terminy tego miesiąca z księgowaniem |
+| Plan | budżety i cele z paskami postępu |
 | Analizy | wykresy kategorii, trendu i salda, zapis do PNG, prognoza |
 | Dane | import z podglądem i duplikatami, eksport, raport, kopie zapasowe |
 | Ustawienia | konta, kategorie, reguły, profile CSV, próg ostrzeżeń |
 
-Transakcje dodaje się w panelu wysuwanym z prawej: kategorię wybiera się kafelkiem z ikoną, a reguły podpowiadają ją w trakcie pisania opisu. Skróty: `Ctrl+N` nowa transakcja, `Ctrl+1` do `Ctrl+6` widoki, `Enter` zapis, `Esc` zamknięcie panelu. Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
+Transakcje dodaje się w panelu wysuwanym z prawej: kategorię wybiera się kafelkiem z ikoną, a reguły podpowiadają ją w trakcie pisania opisu. Skróty: `Ctrl+N` nowa transakcja, `Ctrl+1` do `Ctrl+7` widoki, `Enter` zapis, `Esc` zamknięcie panelu. Motyw jasny lub ciemny jest zapamiętywany. Okno korzysta z tych samych serwisów i tej samej walidacji co konsola.
 
 ## Architektura
 
@@ -139,7 +143,9 @@ Zależności idą w jedną stronę: `ui` lub `gui -> services -> storage`, a z `
 
 Kwoty są typu `Decimal`, a w bazie są zapisywane w groszach jako liczby całkowite, więc nie powstają błędy zaokrągleń.
 
-**Jak powstaje prognoza.** Od dzisiejszego salda aplikacja odejmuje lub dodaje niezaksięgowane transakcje cykliczne do końca miesiąca, a potem odejmuje dzienne tempo pozostałych wydatków pomnożone przez liczbę dni. Tempo pochodzi z trzech poprzednich miesięcy: średnia daje wariant realistyczny, najniższe optymistyczny, najwyższe pesymistyczny.
+**Jak powstaje kwota na czysto.** Każda aktywna stała pozycja jest przeliczana na jeden miesiąc: tygodniowa razy 52 i przez 12, kwartalna przez 3, roczna przez 12. Od sumy stałych przychodów aplikacja odejmuje sumę stałych opłat. Opłata dodana do listy nie zmienia salda, dopóki nie zostanie zaksięgowana. Płatność zaksięgowana przed terminem dostaje dzisiejszą datę.
+
+**Jak powstaje prognoza.** Od dzisiejszego salda aplikacja odejmuje lub dodaje niezaksięgowane stałe płatności do końca miesiąca, a potem odejmuje dzienne tempo pozostałych wydatków pomnożone przez liczbę dni. Tempo pochodzi z trzech poprzednich miesięcy: średnia daje wariant realistyczny, najniższe optymistyczny, najwyższe pesymistyczny.
 
 ## Biblioteki
 
