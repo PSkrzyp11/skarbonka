@@ -60,8 +60,8 @@ def test_osoby_w_raporcie(serwisy):
     tekst = "\n".join(" ".join(linia.split()) for linia in serwisy.raporty.linie(LISTOPAD))
     for fragment in (
         "Czynsz (Ola) -40,00 zł",
-        "Na czysto: Ola -40,00 zł",
-        "Na czysto: Wspólne -100,00 zł",
+        "Na czysto: Ola -140,00 zł",
+        "W tym wspólne, po równo -100,00 zł",
         "Zostaje na czysto -140,00 zł",
     ):
         assert fragment in tekst

@@ -110,8 +110,11 @@ class SerwisRaportow:
             return []
         linie = [self._linia(self._cykliczne.opis(c), c.miesiecznie) for c in aktywne]
         grupy = self._cykliczne.grupy()
-        if len(grupy) > 1:
-            linie += [self._linia(f"Na czysto: {g.nazwa}", g.bilans.na_czysto) for g in grupy]
+        for grupa in grupy:
+            if grupa.osoba_id is None and len(grupy) > 1:
+                linie.append(self._linia("W tym wspólne, po równo", grupa.bilans.na_czysto))
+            elif grupa.osoba_id is not None:
+                linie.append(self._linia(f"Na czysto: {grupa.nazwa}", grupa.bilans.na_czysto))
         return [*linie, self._linia("Zostaje na czysto", self._cykliczne.bilans().na_czysto)]
 
     @staticmethod

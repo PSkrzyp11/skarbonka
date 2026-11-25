@@ -10,7 +10,7 @@ import pytest
 
 from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc, StanPlatnosci
-from skarbonka.services.cykliczne import do_zaplaty
+from skarbonka.services.bilans_stalych import do_zaplaty
 from skarbonka.storage.baza import Baza
 from skarbonka.wyjatki import BladWalidacji, NieprawidlowaData, NieprawidlowaKwota, RekordWUzyciu
 

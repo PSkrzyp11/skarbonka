@@ -6,7 +6,8 @@ from datetime import date
 from skarbonka.config import MAKS_DLUGOSC_NAZWY
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, MAKS_ODSTEP, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
-from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY, do_zaplaty
+from skarbonka.services.bilans_stalych import do_zaplaty
+from skarbonka.services.cykliczne import NAJSTARSZY_START, RODZAJE_KWOTY
 from skarbonka.ui import widoki
 from skarbonka.ui.ekran_osoby import EkranOsob
 from skarbonka.ui.menu import Ekran, OpcjaMenu

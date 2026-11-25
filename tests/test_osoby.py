@@ -8,6 +8,7 @@ import pytest
 
 from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc
+from skarbonka.services.bilans_stalych import do_zaplaty, podziel
 from skarbonka.services.osoby import WSPOLNE
 from skarbonka.storage.baza import Baza
 from skarbonka.wyjatki import BladWalidacji
@@ -55,8 +56,49 @@ def test_kazda_osoba_ma_swoj_bilans(serwisy, ola):
     ):
         serwisy.cykliczne.dodaj(pozycja, DZIS)
     bilanse = {g.nazwa: g.bilans.na_czysto for g in serwisy.cykliczne.grupy()}
-    assert bilanse == {"Ola": 3500, "Jan": -900, WSPOLNE: -60}
-    assert serwisy.cykliczne.bilans().na_czysto == 2540
+    assert bilanse == {"Ola": 3470, "Jan": -930, WSPOLNE: -60}
+    assert serwisy.cykliczne.bilans().na_czysto == bilanse["Ola"] + bilanse["Jan"] == 2540
+
+
+@pytest.mark.parametrize(
+    ("kwota", "na_ile", "oczekiwane"),
+    [
+        ("100", 2, ["50", "50"]),
+        ("100", 3, ["33.34", "33.33", "33.33"]),
+        ("-0.05", 2, ["-0.03", "-0.02"]),
+        ("7.77", 1, ["7.77"]),
+    ],
+)
+def test_podzial_nie_gubi_groszy(kwota, na_ile, oczekiwane):
+    czesci = podziel(Decimal(kwota), na_ile)
+    assert czesci == [Decimal(czesc) for czesc in oczekiwane]
+    assert sum(czesci) == Decimal(kwota)
+
+
+def test_wspolne_u_kazdej_osoby(serwisy, ola):
+    serwisy.osoby.dodaj("Jan")
+    serwisy.cykliczne.dodaj(stala("Dotacja", "przychód", "200"), DZIS)
+    serwisy.cykliczne.dodaj(stala("Internet", "wydatek", "59.99"), DZIS)
+    wylaczona = serwisy.cykliczne.dodaj(stala("Gaz", "wydatek", "80"), DZIS)
+    serwisy.cykliczne.przelacz(wylaczona)
+    grupa_oli, grupa_jana, wspolne = serwisy.cykliczne.grupy()
+    assert [u.wplyw for u in grupa_oli.wspolne] == [100, Decimal("-30.00"), -40]
+    assert (grupa_oli.wlasne, grupa_oli.wspolne[0].ulamek) == ([], "1/2")
+    assert grupa_oli.bilans.na_czysto == Decimal("70.00")
+    assert grupa_jana.bilans.na_czysto == Decimal("70.01")
+    assert wspolne.bilans.na_czysto == Decimal("140.01")
+
+
+def test_czesc_wspolnej_platnosci(serwisy, ola):
+    serwisy.osoby.dodaj("Jan")
+    czynsz = serwisy.cykliczne.dodaj(stala("Czynsz", "wydatek", "1500"), DZIS)
+    (platnosc,) = serwisy.cykliczne.grupy()[0].platnosci(serwisy.cykliczne.harmonogram(DZIS))
+    assert (platnosc.wplyw, platnosc.wspolna) == (-750, True)
+    assert do_zaplaty([platnosc]) == 750
+    serwisy.cykliczne.zaksieguj(czynsz, platnosc.termin, DZIS)
+    assert serwisy.transakcje.wszystkie()[-1].kwota == 1500
+    (platnosc,) = serwisy.cykliczne.grupy()[1].platnosci(serwisy.cykliczne.harmonogram(DZIS))
+    assert (platnosc.wplyw, do_zaplaty([platnosc])) == (-750, 0)
 
 
 def test_nazwa_powtarza_sie_tylko_u_roznych_osob(serwisy, ola):

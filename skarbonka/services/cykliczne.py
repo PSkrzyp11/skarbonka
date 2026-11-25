@@ -1,15 +1,20 @@
 """Stałe przychody i opłaty: bilans miesiąca, harmonogram i księgowanie."""
 
 import logging
-from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 
 from skarbonka.models.cykliczna import GROSZ, Cykliczna
 from skarbonka.models.enums import StanPlatnosci
 from skarbonka.models.transakcja import ZERO, Transakcja
-from skarbonka.services.osoby import WSPOLNE, SerwisOsob
+from skarbonka.services.bilans_stalych import (
+    BilansStalych,
+    GrupaStalych,
+    Platnosc,
+    Udzial,
+)
+from skarbonka.services.osoby import WSPOLNE, WSZYSCY, SerwisOsob
 from skarbonka.services.transakcje import SerwisTransakcji
 from skarbonka.storage.baza import Baza
 from skarbonka.storage.repozytoria_planu import RepozytoriumCyklicznych
@@ -20,95 +25,8 @@ from skarbonka.wyjatki import NieprawidlowaData
 logger = logging.getLogger(__name__)
 
 NAJSTARSZY_START = timedelta(days=366)
-SREDNIO_DNI_W_MIESIACU = 30
 ILE_DO_SREDNIEJ = 12
 RODZAJE_KWOTY = {"Zawsze taka sama": False, "Za każdym razem inna": True}
-
-
-@dataclass(frozen=True)
-class BilansStalych:
-    """Stałe przychody i opłaty w przeliczeniu na jeden miesiąc."""
-
-    przychody: Decimal
-    wydatki: Decimal
-
-    @property
-    def na_czysto(self) -> Decimal:
-        """Zwraca kwotę, która zostaje po opłaceniu wszystkiego."""
-        return self.przychody - self.wydatki
-
-    @property
-    def dziennie(self) -> Decimal:
-        """Zwraca kwotę na czysto podzieloną na 30 dni."""
-        return (self.na_czysto / SREDNIO_DNI_W_MIESIACU).quantize(GROSZ)
-
-    @property
-    def procent(self) -> float | None:
-        """Zwraca, jaki procent przychodów zostaje. None, gdy przychodów nie ma."""
-        if self.przychody == 0:
-            return None
-        return float(self.na_czysto / self.przychody * 100)
-
-
-def policz_bilans(stale: Iterable[Cykliczna]) -> BilansStalych:
-    """Zwraca miesięczny bilans aktywnych pozycji."""
-    kwoty = [c.miesiecznie for c in stale if c.aktywna]
-    return BilansStalych(
-        przychody=sum((k for k in kwoty if k > 0), ZERO),
-        wydatki=-sum((k for k in kwoty if k < 0), ZERO),
-    )
-
-
-@dataclass(frozen=True)
-class GrupaStalych:
-    """Stałe pozycje jednej osoby albo wspólne."""
-
-    nazwa: str
-    osoba_id: int | None
-    stale: list[Cykliczna]
-
-    @property
-    def bilans(self) -> BilansStalych:
-        """Zwraca bilans pozycji z tej grupy."""
-        return policz_bilans(self.stale)
-
-
-@dataclass(frozen=True)
-class Platnosc:
-    """Jeden termin stałej pozycji w harmonogramie."""
-
-    cykliczna: Cykliczna
-    termin: date
-    stan: StanPlatnosci
-    transakcja: Transakcja | None = None
-
-    @property
-    def wplyw(self) -> Decimal:
-        """Zwraca kwotę zaksięgowaną, a przed zaksięgowaniem przewidywaną."""
-        return self.cykliczna.wplyw if self.transakcja is None else self.transakcja.wplyw
-
-    @property
-    def do_poprawy(self) -> bool:
-        """Czy można poprawić kwotę: ostatni zaksięgowany termin zmiennej pozycji."""
-        ostatni = self.termin == self.cykliczna.ostatnia
-        return self.cykliczna.zmienna and ostatni and self.transakcja is not None
-
-    @property
-    def kolejna(self) -> bool:
-        """Czy to najbliższy niezaksięgowany termin swojej pozycji."""
-        return self.termin == self.cykliczna.nastepny
-
-
-def do_zaplaty(platnosci: list[Platnosc]) -> Decimal:
-    """Zwraca sumę opłat z harmonogramu, które nie są jeszcze załatwione."""
-    return sum(
-        (
-            p.cykliczna.kwota
-            for p in platnosci
-            if p.stan is not StanPlatnosci.ZALATWIONA and p.cykliczna.wplyw < 0
-        ),
-        ZERO,
-    )
 
 
 class SerwisCyklicznych:
@@ -134,15 +52,25 @@ class SerwisCyklicznych:
         """Zwraca transakcję cykliczną o podanym numerze."""
         return self._cykliczne.pobierz(numer)
 
+    def grupa_wszystkich(self) -> GrupaStalych:
+        """Zwraca wszystkie pozycje w pełnych kwotach."""
+        return GrupaStalych(WSZYSCY, None, [Udzial(c) for c in self.wszystkie()])
+
     def grupy(self) -> list[GrupaStalych]:
-        """Dzieli pozycje na osoby. Wspólne są na końcu, o ile istnieją."""
-        stale = self.wszystkie()
-        grupy = [
-            GrupaStalych(osoba.nazwa, osoba.id, [c for c in stale if c.osoba_id == osoba.id])
-            for osoba in self._osoby.wszystkie()
-        ]
+        """Dzieli pozycje na osoby. Wspólne są na końcu, o ile istnieją.
+
+        Każda osoba ma swoje pozycje i równą część każdej wspólnej.
+        """
+        stale, osoby = self.wszystkie(), self._osoby.wszystkie()
         wspolne = [c for c in stale if c.osoba_id is None]
-        return grupy + ([GrupaStalych(WSPOLNE, None, wspolne)] if wspolne else [])
+        grupy = []
+        for numer, osoba in enumerate(osoby):
+            udzialy = [Udzial(c) for c in stale if c.osoba_id == osoba.id]
+            udzialy += [Udzial(c, numer, len(osoby), wspolny=True) for c in wspolne]
+            grupy.append(GrupaStalych(osoba.nazwa, osoba.id, udzialy))
+        if wspolne:
+            grupy.append(GrupaStalych(WSPOLNE, None, [Udzial(c) for c in wspolne]))
+        return grupy
 
     def opis(self, cykliczna: Cykliczna) -> str:
         """Zwraca nazwę pozycji, a przy cudzej także osobę, np. Czynsz (Ola)."""
@@ -174,7 +102,7 @@ class SerwisCyklicznych:
 
     def bilans(self) -> BilansStalych:
         """Zwraca miesięczny bilans wszystkich osób razem."""
-        return policz_bilans(self.wszystkie())
+        return self.grupa_wszystkich().bilans
 
     def harmonogram(self, dzis: date | None = None) -> list[Platnosc]:
         """Zwraca terminy bieżącego miesiąca oraz starsze zaległości."""

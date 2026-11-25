@@ -20,7 +20,12 @@ from skarbonka.models.enums import StanBudzetu, StanPlatnosci
 from skarbonka.models.konto import Konto
 from skarbonka.models.plan import Cel
 from skarbonka.models.transakcja import Transakcja
-from skarbonka.services.cykliczne import BilansStalych, GrupaStalych, Platnosc
+from skarbonka.services.bilans_stalych import (
+    BilansStalych,
+    GrupaStalych,
+    Platnosc,
+    policz_bilans,
+)
 from skarbonka.services.planowanie import WykonanieBudzetu
 from skarbonka.utils.formatowanie import (
     formatuj_date,
@@ -215,15 +220,27 @@ def pokaz_cele(cele: list[Cel], dzis: date) -> None:
 def pokaz_osoby(grupy: list[GrupaStalych], razem: BilansStalych) -> None:
     """Wypisuje przychody, opłaty i kwotę na czysto każdej osoby."""
     tabela = _tabela(
-        ("Osoba", "left"), ("Przychody", "right"), ("Opłaty", "right"), ("Na czysto", "right")
+        ("Osoba", "left"),
+        ("Przychody", "right"),
+        ("Opłaty", "right"),
+        ("W tym wspólne", "right"),
+        ("Na czysto", "right"),
     )
-    for nazwa, bilans in [*((g.nazwa, g.bilans) for g in grupy), ("Razem", razem)]:
+    osoby = [grupa for grupa in grupy if grupa.osoba_id is not None]
+    wiersze = [(g.nazwa, g.bilans, policz_bilans(g.wspolne)) for g in osoby]
+    wspolne = policz_bilans(u for g in osoby for u in g.wspolne)
+    for nazwa, bilans, czesc in [*wiersze, ("Razem", razem, wspolne)]:
         if bilans is razem:
             tabela.add_section()
         tabela.add_row(
-            Text(nazwa), _kwota(bilans.przychody), _kwota(bilans.wydatki), _kwota(bilans.na_czysto)
+            Text(nazwa),
+            _kwota(bilans.przychody),
+            _kwota(bilans.wydatki),
+            _kwota(czesc.na_czysto),
+            _kwota(bilans.na_czysto),
         )
     konsola.print(tabela)
+    print("  Wspólne są podzielone po równo między osoby.")
 
 
 def pokaz_cykliczne(grupy: list[GrupaStalych]) -> None:
@@ -239,16 +256,17 @@ def pokaz_cykliczne(grupy: list[GrupaStalych]) -> None:
         if len(grupy) > 1:
             tabela.add_section()
             tabela.add_row(Text(grupa.nazwa, "bold"))
-        for c in grupa.stale:
+        for u in grupa.udzialy:
+            c = u.cykliczna
             tabela.add_row(
-                Text(c.nazwa),
-                _kwota(c.wplyw),
+                Text(f"{c.nazwa} ({u.ulamek})" if u.wspolny else c.nazwa),
+                _kwota(u.wplyw),
                 c.powtarzanie + (" *" if c.zmienna else ""),
-                _kwota(c.miesiecznie),
+                _kwota(u.miesiecznie),
                 formatuj_date(c.nastepny) if c.aktywna else "wyłączona",
             )
     konsola.print(tabela)
-    if any(c.zmienna for grupa in grupy for c in grupa.stale):
+    if any(u.cykliczna.zmienna for grupa in grupy for u in grupa.udzialy):
         print("  * za każdym razem inna kwota, tu ostatnio wpisana")
 
 
