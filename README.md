@@ -17,7 +17,7 @@ Menedżer budżetu domowego z dwoma interfejsami: w oknie i w konsoli. Zapisuje 
 ## Najważniejsze funkcje
 
 - **Transakcje:** wydatki, przychody i przelewy między kontami, edycja, wyszukiwanie, wydatki w obcej walucie
-- **Stałe płatności:** regularne przychody i opłaty (co tydzień, miesiąc, kwartał lub rok), kwota, która zostaje na czysto, osobno dla każdej osoby i razem, terminy i księgowanie jednym kliknięciem
+- **Stałe płatności:** regularne przychody i opłaty (co tydzień, miesiąc, kwartał lub rok), kwota, która zostaje na czysto, osobno dla każdej osoby i razem, kwoty stałe albo za każdym razem inne, terminy i księgowanie jednym kliknięciem
 - **Plan:** budżety z ostrzeżeniami, cele oszczędnościowe
 - **Analizy:** podsumowania, udziały kategorii, trend, prognoza salda w trzech wariantach, wykresy PNG
 - **Dane:** import wyciągów CSV z wykrywaniem duplikatów, eksport CSV, raport TXT, kopie zapasowe JSON
@@ -143,7 +143,7 @@ Zależności idą w jedną stronę: `ui` lub `gui -> services -> storage`, a z `
 
 Kwoty są typu `Decimal`, a w bazie są zapisywane w groszach jako liczby całkowite, więc nie powstają błędy zaokrągleń.
 
-**Jak powstaje kwota na czysto.** Każda aktywna stała pozycja jest przeliczana na jeden miesiąc: tygodniowa razy 52 i przez 12, kwartalna przez 3, roczna przez 12. Od sumy stałych przychodów aplikacja odejmuje sumę stałych opłat. Opłata dodana do listy nie zmienia salda, dopóki nie zostanie zaksięgowana. Płatność zaksięgowana przed terminem dostaje dzisiejszą datę. Każda pozycja należy do jednej osoby albo jest wspólna; transakcja z pozycji osoby ma jej imię w opisie.
+**Jak powstaje kwota na czysto.** Każda aktywna stała pozycja jest przeliczana na jeden miesiąc: tygodniowa razy 52 i przez 12, kwartalna przez 3, roczna przez 12. Od sumy stałych przychodów aplikacja odejmuje sumę stałych opłat. Opłata dodana do listy nie zmienia salda, dopóki nie zostanie zaksięgowana. Płatność zaksięgowana przed terminem dostaje dzisiejszą datę. Każda pozycja należy do jednej osoby albo jest wspólna; transakcja z pozycji osoby ma jej imię w opisie. Przy pozycji z kwotą zmienną, np. pensji godzinowej, aplikacja pyta o kwotę podczas księgowania; do bilansu wchodzi ostatnio wpisana, a na liście widać średnią z ostatnich 12.
 
 **Jak powstaje prognoza.** Od dzisiejszego salda aplikacja odejmuje lub dodaje niezaksięgowane stałe płatności do końca miesiąca, a potem odejmuje dzienne tempo pozostałych wydatków pomnożone przez liczbę dni. Tempo pochodzi z trzech poprzednich miesięcy: średnia daje wariant realistyczny, najniższe optymistyczny, najwyższe pesymistyczny.
 
