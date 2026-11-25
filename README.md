@@ -17,7 +17,7 @@ Menedżer budżetu domowego z dwoma interfejsami: w oknie i w konsoli. Zapisuje 
 ## Najważniejsze funkcje
 
 - **Transakcje:** wydatki, przychody i przelewy między kontami, edycja, wyszukiwanie, wydatki w obcej walucie
-- **Stałe płatności:** regularne przychody i opłaty (co tydzień, miesiąc, kwartał lub rok), kwota, która zostaje na czysto, terminy i księgowanie jednym kliknięciem
+- **Stałe płatności:** regularne przychody i opłaty (co tydzień, miesiąc, kwartał lub rok), kwota, która zostaje na czysto, osobno dla każdej osoby i razem, terminy i księgowanie jednym kliknięciem
 - **Plan:** budżety z ostrzeżeniami, cele oszczędnościowe
 - **Analizy:** podsumowania, udziały kategorii, trend, prognoza salda w trzech wariantach, wykresy PNG
 - **Dane:** import wyciągów CSV z wykrywaniem duplikatów, eksport CSV, raport TXT, kopie zapasowe JSON
@@ -84,7 +84,7 @@ Testy:
 | Menu | Opcje |
 |---|---|
 | 1. Transakcje | dodaj wydatek, dodaj przychód, przelew, wydatek w obcej walucie, lista, szukaj i filtruj, edytuj, usuń |
-| 2. Plan | budżety (stan, limit, kopiowanie, usuwanie), cele (postęp, dodawanie, wpłaty, usuwanie), stałe przychody i opłaty (lista i kwota na czysto, płatności w tym miesiącu, dodawanie, edycja, księgowanie zaległych, wyłączanie, usuwanie) |
+| 2. Plan | budżety (stan, limit, kopiowanie, usuwanie), cele (postęp, dodawanie, wpłaty, usuwanie), stałe przychody i opłaty (lista i kwota na czysto, płatności w tym miesiącu, dodawanie, edycja, księgowanie zaległych, wyłączanie, usuwanie, osoby) |
 | 3. Analizy | saldo i sumy, podsumowanie miesiąca, kategorie, trend, największe wydatki, prognoza, wykresy PNG |
 | 4. Dane | import CSV, cofnięcie importu, eksport CSV, raport TXT, utworzenie i przywrócenie kopii |
 | 5. Ustawienia | konta, kategorie, reguły kategorii, profile CSV banków, próg ostrzeżeń |
@@ -99,7 +99,7 @@ Pliki do wypróbowania importu są w katalogu `przyklady`: poprawny `wyciag_demo
 |---|---|
 | Pulpit | saldo z wykresem, bieżący miesiąc, prognoza, ostatnie transakcje, sprawy do załatwienia |
 | Transakcje | lista pogrupowana dniami, szukanie w trakcie pisania, filtry okresu, konta i kategorii, edycja (także dwuklikiem) i usuwanie |
-| Stałe płatności | kwota na czysto co miesiąc, lista stałych przychodów i opłat, terminy tego miesiąca z księgowaniem |
+| Stałe płatności | kwota na czysto co miesiąc, osoby i to, ile zostaje każdej z nich, lista stałych przychodów i opłat, terminy tego miesiąca z księgowaniem |
 | Plan | budżety i cele z paskami postępu |
 | Analizy | wykresy kategorii, trendu i salda, zapis do PNG, prognoza |
 | Dane | import z podglądem i duplikatami, eksport, raport, kopie zapasowe |
@@ -143,7 +143,7 @@ Zależności idą w jedną stronę: `ui` lub `gui -> services -> storage`, a z `
 
 Kwoty są typu `Decimal`, a w bazie są zapisywane w groszach jako liczby całkowite, więc nie powstają błędy zaokrągleń.
 
-**Jak powstaje kwota na czysto.** Każda aktywna stała pozycja jest przeliczana na jeden miesiąc: tygodniowa razy 52 i przez 12, kwartalna przez 3, roczna przez 12. Od sumy stałych przychodów aplikacja odejmuje sumę stałych opłat. Opłata dodana do listy nie zmienia salda, dopóki nie zostanie zaksięgowana. Płatność zaksięgowana przed terminem dostaje dzisiejszą datę.
+**Jak powstaje kwota na czysto.** Każda aktywna stała pozycja jest przeliczana na jeden miesiąc: tygodniowa razy 52 i przez 12, kwartalna przez 3, roczna przez 12. Od sumy stałych przychodów aplikacja odejmuje sumę stałych opłat. Opłata dodana do listy nie zmienia salda, dopóki nie zostanie zaksięgowana. Płatność zaksięgowana przed terminem dostaje dzisiejszą datę. Każda pozycja należy do jednej osoby albo jest wspólna; transakcja z pozycji osoby ma jej imię w opisie.
 
 **Jak powstaje prognoza.** Od dzisiejszego salda aplikacja odejmuje lub dodaje niezaksięgowane stałe płatności do końca miesiąca, a potem odejmuje dzienne tempo pozostałych wydatków pomnożone przez liczbę dni. Tempo pochodzi z trzech poprzednich miesięcy: średnia daje wariant realistyczny, najniższe optymistyczny, najwyższe pesymistyczny.
 
