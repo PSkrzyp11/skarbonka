@@ -337,13 +337,48 @@ def test_stale_platnosci(okno, odpowiedz):
         assert len(serwis.wszystkie()) == zostaje
 
 
+def test_osoby(okno, odpowiedz):
+    okno.pokaz_widok("Stałe płatności")
+    widok, serwisy = okno.widok(), okno.serwisy
+    assert not widok.osoby.winfo_manager()
+    for imie in ("Ola", "Jan"):
+        wypelnij(widok.dodaj_osobe(), nazwa=imie)
+        assert widok.osoby.nazwa_wybranej() == imie
+        wypelnij(widok.dodaj_oplate(), nazwa="Czynsz", kwota="700", kategoria="Mieszkanie")
+    wypelnij(widok.dodaj_przychod(), nazwa="Pensja", kwota="5000")
+    assert widok.osoby.winfo_manager()
+    assert widok.na_czysto.cget("text") == "4 300,00 zł"
+    assert widok._czyje.cget("text").endswith("Jan")
+    assert [p.tytul for p in widok.tabela.pozycje()] == ["Pensja", "Czynsz"]
+
+    widok.osoby.lista.zaznacz(1)
+    assert kwota_ze_znakiem("-700,00 zł") == widok.na_czysto.cget("text")
+    wypelnij(widok.osoby.edytuj(), nazwa="Aleksandra")
+    assert serwisy.osoby.pobierz(1).nazwa == "Aleksandra"
+    widok.osoby.lista.zaznacz(0)
+    assert widok.na_czysto.cget("text") == "3 600,00 zł"
+    assert any("Aleksandra" in p.opis for p in widok.tabela.pozycje())
+    widok.tabela.zaznacz(1)
+    wypelnij(widok.edytuj(), osoba="Wspólne")
+    assert serwisy.cykliczne.pobierz(1).osoba_id is None
+    widok.osoby.lista.zaznacz(-1)
+    assert [p.id for p in widok.tabela.pozycje()] == [1]
+
+    widok.osoby.lista.zaznacz(2)
+    for tak, zostaje in ((False, 3), (True, 1)):
+        odpowiedz(tak=tak)
+        widok.osoby.usun()
+        assert len(serwisy.cykliczne.wszystkie()) == zostaje
+    assert widok.osoby.nazwa_wybranej() == "Wszyscy"
+
+
 def test_powtorzona_nazwa_stalej(pelne):
     pelne.pokaz_widok("Stałe płatności")
     widok = pelne.widok()
     widok.tabela.zaznacz(1)
     formularz = widok.edytuj()
-    wypelnij(formularz, nazwa="czynsz")
-    assert "jest już zajęta" in formularz.blad_pola("nazwa")
+    wypelnij(formularz, nazwa="ubezpieczenie auta")
+    assert "jest już zajęta" in formularz.blad_ogolny()
     wypelnij(formularz, nazwa="Pensja", termin="01.01.2020")
     assert formularz.blad_pola("termin")
 

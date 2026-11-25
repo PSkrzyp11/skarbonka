@@ -49,6 +49,7 @@ KSIAZKA = ""
 W_GORE = ""
 W_DOL = ""
 OSOBA = ""
+LUDZIE = ""
 
 SLOWA_KLUCZOWE = {
     "elektr": DOKUMENT,

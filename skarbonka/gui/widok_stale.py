@@ -7,6 +7,7 @@ import customtkinter as ctk
 from skarbonka.gui import ikony, styl
 from skarbonka.gui.formularz import Formularz
 from skarbonka.gui.formularze_stalych import edycja_stalej, nowa_stala
+from skarbonka.gui.karta_osob import NUMER_WSZYSTKICH, KartaOsob
 from skarbonka.gui.lista import Lista, Naglowek, Pozycja
 from skarbonka.gui.pozycje import kwota_ze_znakiem
 from skarbonka.gui.skladniki import (
@@ -25,7 +26,7 @@ from skarbonka.gui.widok import Widok
 from skarbonka.models.cykliczna import Cykliczna
 from skarbonka.models.enums import Czestotliwosc, StanPlatnosci
 from skarbonka.models.transakcja import Przychod, Wydatek
-from skarbonka.services.cykliczne import BilansStalych, Platnosc, do_zaplaty
+from skarbonka.services.cykliczne import BilansStalych, Platnosc, do_zaplaty, policz_bilans
 from skarbonka.services.uwagi import STALE
 from skarbonka.utils.formatowanie import (
     formatuj_date,
@@ -36,6 +37,7 @@ from skarbonka.utils.formatowanie import (
 from skarbonka.wyjatki import NieZnalezionoRekordu
 
 SZEROKOSC_BOCZNA = 370
+NA_CZYSTO = "Na czysto co miesiąc"
 NAJWIECEJ_PLATNOSCI = 20
 
 WYGLAD_STANOW = {
@@ -53,21 +55,25 @@ class WidokStale(Widok):
 
     def buduj(self) -> None:
         self.serwis = self.serwisy.cykliczne
-        self.podtytul.configure(text="Pensja, czynsz, abonamenty i wszystko, co się powtarza")
+        self.podtytul.configure(text="Przychody i opłaty, które się powtarzają")
         przycisk(self.pasek, "Dodaj opłatę", self.dodaj_oplate, "glowny", 130, 42).pack(
             side="right"
         )
         przycisk(self.pasek, "Dodaj przychód", self.dodaj_przychod, "zwykly", 140, 42).pack(
             side="right", padx=10
         )
+        przycisk(self.pasek, "Dodaj osobę", self.dodaj_osobe, "zwykly", 120, 42).pack(side="right")
         self._siatka = ramka(self.tresc)
         self._siatka.grid_columnconfigure(0, weight=1)
         self._siatka.grid_columnconfigure(1, minsize=SZEROKOSC_BOCZNA)
         self._siatka.grid_rowconfigure(1, weight=1)
         self._buduj_bilans()
         self._buduj_liste()
-        platnosci = Karta(self._siatka, formatuj_miesiac(date.today()).capitalize())
-        platnosci.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(20, 0))
+        bok = ramka(self._siatka)
+        bok.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(20, 0))
+        self.osoby = KartaOsob(bok, self.okno, self.odswiez)
+        platnosci = Karta(bok, formatuj_miesiac(date.today()).capitalize())
+        platnosci.pack(side="bottom", fill="both", expand=True)
         self._do_zaplaty = etykieta(platnosci.gora, "", 13, kolor=styl.TEKST_DRUGI)
         self._do_zaplaty.pack(side="right")
         self._platnosci = Przewijana(platnosci, styl.KARTA)
@@ -84,9 +90,8 @@ class WidokStale(Widok):
         """Tworzy zieloną kartę z kwotą na czysto."""
         karta = ctk.CTkFrame(self._siatka, fg_color=styl.MARKA, corner_radius=20)
         karta.grid(row=0, column=0, sticky="nsew")
-        etykieta(karta, "Na czysto co miesiąc", 13, "mocny", styl.MARKA_TEKST).pack(
-            anchor="w", padx=28, pady=(24, 0)
-        )
+        self._czyje = etykieta(karta, NA_CZYSTO, 13, "mocny", styl.MARKA_TEKST)
+        self._czyje.pack(anchor="w", padx=28, pady=(24, 0))
         self.na_czysto = etykieta(karta, "", 46, "liczby", styl.BIALY)
         self.na_czysto.pack(anchor="w", padx=28, pady=(4, 2))
         self._opis = etykieta(karta, "", 13, kolor=styl.MARKA_TEKST)
@@ -112,17 +117,32 @@ class WidokStale(Widok):
 
     def odswiez(self) -> None:
         stale = self.serwis.wszystkie()
-        if not stale:
+        self._sa_osoby = bool(self.serwisy.osoby.wszystkie())
+        if not stale and not self._sa_osoby:
             self._siatka.pack_forget()
             self._pusty.pack(expand=True)
             return
         self._pusty.pack_forget()
         self._siatka.pack(fill="both", expand=True)
-        bilans = self.serwis.bilans()
+        self._pokaz_osoby()
+        stale = [c for c in stale if self.osoby.pasuje(c)]
+        bilans = policz_bilans(stale)
         self._pokaz_bilans(bilans)
         self.tabela.wypelnij(self._pozycje(stale, bilans))
         self._wybrano()
         self._pokaz_platnosci()
+
+    def _pokaz_osoby(self) -> None:
+        """Pokazuje kartę osób, o ile jakieś są."""
+        self.osoby.odswiez()
+        if self._sa_osoby:
+            self.osoby.pack(side="top", fill="x", pady=(0, 20))
+        else:
+            self.osoby.pack_forget()
+        jedna = self.osoby.wybrana != NUMER_WSZYSTKICH
+        self._czyje.configure(
+            text=f"{NA_CZYSTO}  ·  {self.osoby.nazwa_wybranej()}" if jedna else NA_CZYSTO
+        )
 
     def _pokaz_bilans(self, bilans: BilansStalych) -> None:
         """Wypełnia zieloną kartę."""
@@ -178,17 +198,23 @@ class WidokStale(Widok):
             stala.id,
             ikona,
             stala.nazwa,
-            f"{stala.czestotliwosc}  ·  {stan}",
+            f"{stala.czestotliwosc}  ·  {stan}{self._czyja(stala)}",
             kwota_ze_znakiem(formatuj_kwote(stala.wplyw)),
             "" if co_miesiac else f"{miesiecznie} na miesiąc",
             kolor,
             wyrozniona=stala.aktywna and stala.wplyw > 0,
         )
 
+    def _czyja(self, stala: Cykliczna) -> str:
+        """Zwraca dopisek z imieniem, gdy widać pozycje wszystkich osób."""
+        if stala.osoba_id is None or self.osoby.wybrana != NUMER_WSZYSTKICH:
+            return ""
+        return f"  ·  {self.serwisy.osoby.pobierz(stala.osoba_id)}"
+
     def _pokaz_platnosci(self) -> None:
         """Wypisuje terminy z tego miesiąca i starsze zaległości."""
         wyczysc(self._platnosci)
-        platnosci = self.serwis.harmonogram()
+        platnosci = [p for p in self.serwis.harmonogram() if self.osoby.pasuje(p.cykliczna)]
         zostalo = do_zaplaty(platnosci)
         if zostalo:
             stan = f"do zapłaty {formatuj_kwote(zostalo)}"
@@ -224,7 +250,7 @@ class WidokStale(Widok):
         ).pack(side="right", padx=(8, 14))
         napisy = ramka(rzad)
         napisy.pack(side="left", fill="x", expand=True)
-        nazwa = etykieta(napisy, stala.nazwa, 14, "mocny")
+        nazwa = etykieta(napisy, self.serwis.opis(stala), 14, "mocny")
         nazwa.configure(wraplength=SZEROKOSC_BOCZNA - 210)
         nazwa.pack(anchor="w")
         etykieta(napisy, f"{formatuj_date(termin)}  ·  {stan}", 12, kolor=styl.TEKST_DRUGI).pack(
@@ -268,11 +294,15 @@ class WidokStale(Widok):
 
     def dodaj_przychod(self) -> Formularz:
         """Otwiera panel stałego przychodu."""
-        return nowa_stala(self.okno, Przychod)
+        return nowa_stala(self.okno, Przychod, self.osoby.osoba_id())
 
     def dodaj_oplate(self) -> Formularz:
         """Otwiera panel stałej opłaty."""
-        return nowa_stala(self.okno, Wydatek)
+        return nowa_stala(self.okno, Wydatek, self.osoby.osoba_id())
+
+    def dodaj_osobe(self) -> Formularz:
+        """Otwiera panel nowej osoby."""
+        return self.osoby.dodaj()
 
     def edytuj(self) -> Formularz:
         """Otwiera panel zmiany zaznaczonej pozycji."""

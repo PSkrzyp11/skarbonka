@@ -115,6 +115,10 @@ class Lista(ctk.CTkFrame):
         self._najechana = None
         self._zmieniono_rozmiar()
 
+    def ustaw_wysokosc(self, ile_pozycji: int) -> None:
+        """Dopasowuje wysokość do podanej liczby pozycji."""
+        self.plotno.configure(height=self._px(WYSOKOSC_POZYCJI) * ile_pozycji)
+
     def pozycje(self) -> list[Pozycja]:
         """Zwraca pozycje bez nagłówków."""
         return [element for _, _, element in self._uklad if isinstance(element, Pozycja)]

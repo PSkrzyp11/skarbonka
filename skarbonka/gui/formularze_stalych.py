@@ -4,14 +4,15 @@ from dataclasses import replace
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from skarbonka.config import MAKS_DLUGOSC_NAZWY
 from skarbonka.gui.formularz import Formularz, Pole
-from skarbonka.gui.zakladka_listy import parser_nazwy
 from skarbonka.models.cykliczna import KLASY_CYKLICZNE, Cykliczna
 from skarbonka.models.enums import Czestotliwosc
 from skarbonka.models.transakcja import Przychod, Transakcja, Wydatek
 from skarbonka.services.cykliczne import NAJSTARSZY_START
+from skarbonka.services.osoby import WSPOLNE
 from skarbonka.utils.formatowanie import formatuj_date
-from skarbonka.utils.walidacja import parsuj_date, parsuj_kwote
+from skarbonka.utils.walidacja import parsuj_date, parsuj_kwote, sprawdz_tekst
 
 if TYPE_CHECKING:
     from skarbonka.gui.okno import Okno
@@ -31,10 +32,25 @@ def _parser_terminu(stara: Cykliczna | None) -> Any:
     return parser
 
 
-def _pola(okno: "Okno", rodzaj: type[Transakcja], stara: Cykliczna | None = None) -> list[Pole]:
+def _nazwa(tekst: str) -> str:
+    """Sprawdza nazwę. To, czy jest wolna, zależy jeszcze od osoby."""
+    return sprawdz_tekst(tekst, "Nazwa", MAKS_DLUGOSC_NAZWY)
+
+
+def _pola_osoby(okno: "Okno", osoba_id: int | None) -> list[Pole]:
+    """Zwraca pole wyboru osoby albo nic, gdy nie ma osób."""
+    wybor = okno.serwisy.osoby.wybor()
+    if len(wybor) == 1:
+        return []
+    obecna = okno.serwisy.osoby.nazwy().get(osoba_id, WSPOLNE)
+    return [Pole("osoba", "Czyje", wartosc=obecna, wybor=wybor)]
+
+
+def _pola(
+    okno: "Okno", rodzaj: type[Transakcja], osoba_id: int | None, stara: Cykliczna | None = None
+) -> list[Pole]:
     """Zwraca pola panelu. Przy edycji są wypełnione."""
     serwisy = okno.serwisy
-    numer = stara.id if stara else None
     return [
         Pole(
             "kwota",
@@ -46,9 +62,10 @@ def _pola(okno: "Okno", rodzaj: type[Transakcja], stara: Cykliczna | None = None
         Pole(
             "nazwa",
             f"Nazwa, np. {PRZYKLADY[rodzaj]}",
-            parser_nazwy(lambda nazwa: serwisy.cykliczne.sprawdz_nazwe(nazwa, numer)),
+            _nazwa,
             stara.nazwa if stara else "",
         ),
+        *_pola_osoby(okno, osoba_id),
         Pole(
             "czestotliwosc",
             "Powtarzanie",
@@ -78,7 +95,9 @@ def _pola(okno: "Okno", rodzaj: type[Transakcja], stara: Cykliczna | None = None
     ]
 
 
-def nowa_stala(okno: "Okno", rodzaj: type[Transakcja]) -> Formularz:
+def nowa_stala(
+    okno: "Okno", rodzaj: type[Transakcja], osoba_id: int | None = None
+) -> Formularz:
     """Otwiera panel nowego stałego przychodu albo opłaty."""
 
     def zapisz(dane: dict[str, Any]) -> None:
@@ -91,11 +110,12 @@ def nowa_stala(okno: "Okno", rodzaj: type[Transakcja]) -> Formularz:
                 dane["kategoria"].id,
                 dane["termin"],
                 dane["czestotliwosc"],
+                osoba_id=dane.get("osoba"),
             )
         )
         okno.powiadom(f"Dodano: {dane['nazwa']}")
 
-    return Formularz(okno, TYTULY[rodzaj], _pola(okno, rodzaj), zapisz, "Dodaj")
+    return Formularz(okno, TYTULY[rodzaj], _pola(okno, rodzaj, osoba_id), zapisz, "Dodaj")
 
 
 def edycja_stalej(okno: "Okno", stara: Cykliczna) -> Formularz:
@@ -109,8 +129,10 @@ def edycja_stalej(okno: "Okno", stara: Cykliczna) -> Formularz:
             kwota=dane["kwota"],
             konto_id=dane["konto"].id,
             kategoria_id=dane["kategoria"].id,
+            osoba_id=dane.get("osoba"),
         )
         okno.serwisy.cykliczne.zmien(zmieniona.przeplanuj(dane["termin"], dane["czestotliwosc"]))
         okno.powiadom("Zapisano zmiany.")
 
-    return Formularz(okno, TYTULY[rodzaj], _pola(okno, rodzaj, stara), zapisz)
+    pola = _pola(okno, rodzaj, stara.osoba_id, stara)
+    return Formularz(okno, TYTULY[rodzaj], pola, zapisz)
